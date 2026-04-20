@@ -1,6 +1,13 @@
 > Project still in development phase!
 
-# InfraSketch
+
+<h1 align="center">InfraSketch</h1>
+
+<p align="center">
+  <img src="https://drive.google.com/uc?export=view&id=1-25RZWIbCUVklhsvBqlQTdaIylMlyBDE" 
+       alt="InfraSketch Banner" 
+       width="450"/>
+</p>
 
 An interactive, drag-and-drop cloud architecture designer built specifically for AWS.
 

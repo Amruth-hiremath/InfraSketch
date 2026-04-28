@@ -10,6 +10,7 @@ import TopToolbar from './components/toolbar/TopToolbar';
 import AuthModal from './components/auth/AuthModal';
 import LinterPanel from './components/linter/LinterPanel';
 import useAuthStore from './hooks/useAuth';
+import { ReactFlowProvider } from '@xyflow/react';
 import './App.css';
 
 // Secure Wrapper for Protected Pages
@@ -63,7 +64,7 @@ const AppContent = () => {
 
         {/* PROTECTED: Dashboard & App */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/app" element={<ProtectedRoute><EditorLayout /></ProtectedRoute>} />
+        <Route path="/app" element={<ProtectedRoute><ReactFlowProvider><EditorLayout /></ReactFlowProvider></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

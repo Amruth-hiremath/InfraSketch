@@ -5,14 +5,17 @@ import {
   Controls,
   MiniMap,
   BackgroundVariant,
-  Panel
+  Panel,
+  useReactFlow
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+
 import nodeTypes from '../nodes/nodeTypes';
 import CustomEdge from './CustomEdge';
 import useDiagramStore from '../../hooks/useDiagramStore';
 import useLinter from '../../hooks/useLinter';
 import { getServiceById } from '../../data/awsServices';
+
 import DotField from '../landing/DotField';
 import { Activity, Zap, Cpu, Server } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,17 +27,19 @@ let nodeIdCounter = 0;
 export default function DesignerCanvas() {
   const reactFlowWrapper = useRef(null);
   const reactFlowInstance = useRef(null);
+  const { screenToFlowPosition } = useReactFlow();
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isReady, setIsReady] = useState(false);
 
   const nodes = useDiagramStore((s) => s.nodes);
   const edges = useDiagramStore((s) => s.edges);
+  const viewport = useDiagramStore((s) => s.viewport);
+  const diagramId = useDiagramStore((s) => s.diagramId);
   const onNodesChange = useDiagramStore((s) => s.onNodesChange);
   const onEdgesChange = useDiagramStore((s) => s.onEdgesChange);
   const onConnect = useDiagramStore((s) => s.onConnect);
   const addNode = useDiagramStore((s) => s.addNode);
   const setSelectedNode = useDiagramStore((s) => s.setSelectedNode);
-  const updateNodeData = useDiagramStore((s) => s.updateNodeData);
 
   const { getWarningsForNode } = useLinter();
 
@@ -47,17 +52,37 @@ export default function DesignerCanvas() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  // Inject warnings into node data for rendering
+  // Fit View / Apply Viewport on Diagram Load
+  const [hasFitted, setHasFitted] = useState(false);
+
+  useEffect(() => {
+    setHasFitted(false); // Reset whenever diagram ID or name changes
+  }, [diagramId, useDiagramStore.getState().diagramName]);
+
+  useEffect(() => {
+    if (reactFlowInstance.current && nodes.length > 0 && !hasFitted) {
+      setTimeout(() => {
+        if (viewport?.zoom) {
+           reactFlowInstance.current.setViewport(viewport);
+        } else {
+           reactFlowInstance.current.fitView({ padding: 0.2 });
+        }
+        setHasFitted(true);
+      }, 50);
+    }
+  }, [nodes]); // Fired on nodes change as requested, but locked to execute only once per diagram/template load
+
+  // SAFE nodes + inject warnings
   const nodesWithWarnings = useMemo(() => {
     return (nodes || [])
-      .filter((n) => n != null)
+      .filter((n) => n && n.data)
       .map((n) => ({
-      ...n,
-      data: {
-        ...(n.data || {}),
-        warnings: getWarningsForNode(n.id),
-      },
-    }));
+        ...n,
+        data: {
+          ...n.data,
+          warnings: getWarningsForNode(n.id),
+        },
+      }));
   }, [nodes, getWarningsForNode]);
 
   const onInit = useCallback((instance) => {
@@ -72,7 +97,7 @@ export default function DesignerCanvas() {
     setSelectedNode(null);
   }, [setSelectedNode]);
 
-  // Handle drop from palette
+  // IMPROVED DROP (merged logic)
   const onDragOver = useCallback((event) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
@@ -88,10 +113,10 @@ export default function DesignerCanvas() {
       const service = getServiceById(serviceId);
       if (!service) return;
 
-      const bounds = reactFlowWrapper.current.getBoundingClientRect();
-      const position = reactFlowInstance.current.screenToFlowPosition({
-        x: event.clientX - bounds.left,
-        y: event.clientY - bounds.top,
+      // NEW positioning method (more accurate)
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
       });
 
       const newNode = {
@@ -110,11 +135,13 @@ export default function DesignerCanvas() {
 
       addNode(newNode);
     },
-    [addNode]
+    [addNode, screenToFlowPosition]
   );
 
   return (
     <div className="canvas-wrapper" ref={reactFlowWrapper} style={{ position: 'relative' }}>
+
+      {/* Background Effects */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-40">
         <DotField
           dotRadius={1.2}
@@ -127,7 +154,11 @@ export default function DesignerCanvas() {
           glowColor="rgba(255,255,255,0.1)"
         />
       </div>
-      <div className="absolute inset-0 z-10 w-full h-full pointer-events-none opacity-30" style={{ background: 'radial-gradient(circle at center, transparent 30%, #080808 100%)' }} />
+
+      <div className="absolute inset-0 z-10 w-full h-full pointer-events-none opacity-30"
+        style={{ background: 'radial-gradient(circle at center, transparent 30%, #080808 100%)' }}
+      />
+
       <div className="absolute inset-0 z-20 w-full h-full pointer-events-auto">
         <ReactFlow
           nodes={nodesWithWarnings}
@@ -145,10 +176,11 @@ export default function DesignerCanvas() {
           defaultEdgeOptions={{
             type: 'custom',
             animated: true,
+            style: { stroke: '#555', strokeWidth: 2 },
           }}
           fitView
           snapToGrid
-          snapGrid={[16, 16]}
+          snapGrid={[20, 20]}
           minZoom={0.1}
           maxZoom={2}
           deleteKeyCode={['Backspace', 'Delete']}
@@ -156,14 +188,37 @@ export default function DesignerCanvas() {
         >
           <Background
             variant={BackgroundVariant.Dots}
-            gap={24}
-            size={1.5}
-            color="transparent"
+            gap={20}
+            size={1}
+            color="#333"
           />
+
+          {/* Upgraded Controls */}
           <Controls
-            className="flow-controls"
-            showInteractive={false}
-          />         
+            className="bg-[#0A0A0A] border border-[#222] text-white rounded-lg shadow-xl"
+          />
+
+          {/* Upgraded Minimap */}
+          <MiniMap
+            nodeColor={(n) => {
+              const colors = {
+                compute: '#f97316',
+                storage: '#22c55e',
+                database: '#3b82f6',
+                networking: '#a855f7',
+                security: '#ef4444',
+                management: '#64748b',
+                analytics: '#06b6d4',
+                integration: '#ec4899',
+              };
+              return colors[n.data?.category] || '#FF5C00';
+            }}
+            maskColor="rgba(0,0,0,0.7)"
+            className="bg-[#0A0A0A] border border-[#222] rounded-xl shadow-2xl"
+            style={{ width: 180, height: 120 }}
+          />
+
+          {/* Analytics Panel (unchanged) */}
           <AnimatePresence>
             {isReady && (
               <Panel position="bottom-left" className="pointer-events-none mb-10 ml-4 hidden md:block">
@@ -176,14 +231,15 @@ export default function DesignerCanvas() {
                   <p className="text-[10px] uppercase text-gray-500 font-bold mb-3 tracking-wider flex items-center gap-2">
                     <Zap size={12} className="text-[#FF5C00]" /> Intelligence
                   </p>
+
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-400 flex items-center gap-2"><Cpu size={12}/> Compute</span>
-                      <span className="text-gray-200">{nodes.filter(n => n.data?.category === 'compute').length}</span>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-400 flex gap-2"><Cpu size={12} /> Compute</span>
+                      <span>{nodes.filter(n => n?.data?.category === 'compute').length}</span>
                     </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-400 flex items-center gap-2"><Server size={12}/> Storage</span>
-                      <span className="text-gray-200">{nodes.filter(n => n.data?.category === 'storage').length}</span>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-400 flex gap-2"><Server size={12} /> Storage</span>
+                      <span>{nodes.filter(n => n?.data?.category === 'storage').length}</span>
                     </div>
                   </div>
                 </motion.div>
@@ -191,27 +247,8 @@ export default function DesignerCanvas() {
             )}
           </AnimatePresence>
 
-          <MiniMap
-            className="flow-minimap"
-            nodeColor={(n) => {
-              const colors = {
-              compute: '#f97316',
-              storage: '#22c55e',
-              database: '#3b82f6',
-              networking: '#a855f7',
-              security: '#ef4444',
-              management: '#64748b',
-              analytics: '#06b6d4',
-              integration: '#ec4899',
-            };
-            return colors[n.data?.category] || '#FF5C00';
-          }}
-          maskColor="rgba(0, 0, 0, 0.8)"
-          style={{ backgroundColor: '#0A0A0A' }}
-        />
-      </ReactFlow>
+        </ReactFlow>
       </div>
-
     </div>
   );
 }

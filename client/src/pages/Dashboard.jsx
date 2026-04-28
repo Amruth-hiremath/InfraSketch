@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { getUserDiagrams, getDiagramById } from '../api/diagramsApi';
 import useDiagramStore from '../hooks/useDiagramStore';
 import useAuthStore from '../hooks/useAuth';
-import { Plus, LayoutTemplate, LogOut, Clock, ArrowLeft, ChevronRight, Box, Activity, Search, Hexagon } from 'lucide-react';
+import { Plus, LayoutTemplate, LogOut, Clock, ArrowLeft, ChevronRight, Box, Activity, Search, Hexagon, Rocket, Server, Database } from 'lucide-react';
+import { ARCHITECTURE_TEMPLATES } from '../data/templates';
 
 export default function Dashboard() {
   const [diagrams, setDiagrams] = useState([]);
@@ -15,11 +16,9 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   
-  // Zustand actions for managing the canvas state
   const loadDiagram = useDiagramStore((s) => s.loadDiagram);
   const clearDiagram = useDiagramStore((s) => s.clearDiagram);
 
-  // Focus search bar on Cmd/Ctrl + K
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -35,7 +34,6 @@ export default function Dashboard() {
     const fetchDiagrams = async () => {
       try {
         const data = await getUserDiagrams();
-        // Extract the diagrams array from the response object
         setDiagrams(data.diagrams || []); 
       } catch (error) {
         console.error('Failed to load diagrams');
@@ -48,7 +46,6 @@ export default function Dashboard() {
 
   const handleOpenDiagram = async (selectedDiagram) => {
     try {
-      // Show loading indicator or block fast clicks here if needed
       const response = await getDiagramById(selectedDiagram._id);
       const { diagram } = response;
       
@@ -73,6 +70,20 @@ export default function Dashboard() {
     navigate('/app');
   };
 
+  const handleLoadTemplate = (template) => {
+    if (loadDiagram) {
+      loadDiagram({
+        id: null, 
+        name: `Copy of ${template.name}`,
+        description: template.description,
+        nodes: template.nodes,
+        edges: template.edges,
+        viewport: template.viewport
+      });
+    }
+    navigate('/app');
+  };
+
   const handleLogout = () => {
     logout();
     navigate('/');
@@ -81,6 +92,10 @@ export default function Dashboard() {
   const filteredDiagrams = diagrams.filter(diag => 
     diag.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     (diag.description && diag.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const filteredTemplates = ARCHITECTURE_TEMPLATES.filter(tpl => 
+    tpl.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const containerVariants = {
@@ -124,7 +139,6 @@ export default function Dashboard() {
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           className="pointer-events-auto flex items-center justify-between w-full max-w-4xl px-4 py-3 rounded-full bg-[#0A0A0A]/80 backdrop-blur-md border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.6)]"
         >
-          {/* Left Section Navigation */}
           <div 
             onClick={() => navigate('/')}
             className="flex items-center justify-center cursor-pointer group bg-white/5 hover:bg-white/10 w-11 h-11 rounded-full transition-all border border-white/5 hover:border-white/10 shadow-sm flex-shrink-0"
@@ -133,7 +147,6 @@ export default function Dashboard() {
             <ArrowLeft size={18} className="text-[#aaa] group-hover:text-white transition-colors" />
           </div>
           
-          {/* Center Section Search Input */}
           <div className="flex items-center flex-1 max-w-xl mx-4 w-full relative group">
             <div className="absolute inset-0 bg-gradient-to-r from-[#FF5C00]/0 via-[#FF5C00]/10 to-[#FF5C00]/0 rounded-full opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
             <div className="flex items-center w-full bg-[#050505] border border-white/10 rounded-full px-5 py-2.5 focus-within:border-[#FF5C00]/50 focus-within:bg-[#080503] focus-within:shadow-[0_0_15px_rgba(255,92,0,0.2)] transition-all z-10 relative">
@@ -153,7 +166,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Right Section Log Out */}
           <button 
             onClick={handleLogout} 
             className="flex items-center justify-center gap-2.5 bg-white/5 hover:bg-white/10 px-5 py-2.5 rounded-full transition-all border border-white/5 hover:border-white/10 group flex-shrink-0"
@@ -175,98 +187,168 @@ export default function Dashboard() {
             </p>
         </motion.div>
 
-        <motion.div 
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-        >
-          {/* Create New Card */}
+        {/* =========================================
+            SECTION 1: STARTER TEMPLATES & NEW CANVAS
+            ========================================= */}
+        <section className="mb-16">
+          <div className="flex items-center gap-2 mb-6">
+            <Rocket size={20} className="text-[#FF5C00]" />
+            <h2 className="text-2xl font-bold text-white tracking-tight">Starter Templates</h2>
+          </div>
+
           <motion.div 
-            variants={itemVariants}
-            onClick={handleCreateNew}
-            whileHover={{ scale: 1.03, y: -8 }}
-            whileTap={{ scale: 0.96 }}
-            transition={{ type: "spring", stiffness: 400, damping: 20 }}
-            className="group relative h-56 rounded-3xl p-[1px] overflow-hidden cursor-pointer shadow-xl hover:shadow-[0_20px_40px_rgba(255,92,0,0.15)]"
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
           >
-            {/* Glowing Border Effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#FF5C00]/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            
-            {/* Pulsing glow behind the card */}
-            <div className="absolute -inset-2 bg-gradient-to-tr from-[#FF5C00]/20 to-transparent blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+            {/* Create New Card (Always visible) */}
+            <motion.div 
+              variants={itemVariants}
+              onClick={handleCreateNew}
+              whileHover={{ scale: 1.03, y: -8 }}
+              whileTap={{ scale: 0.96 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              className="group relative h-56 rounded-3xl p-[1px] overflow-hidden cursor-pointer shadow-xl hover:shadow-[0_20px_40px_rgba(255,92,0,0.15)]"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-[#FF5C00]/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+              <div className="absolute -inset-2 bg-gradient-to-tr from-[#FF5C00]/20 to-transparent blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
 
-            <div className="absolute inset-[1px] bg-[#060403] rounded-3xl z-10 flex flex-col items-center justify-center transition-colors duration-500 group-hover:bg-[#0b0805]">
-              <motion.div 
-                className="w-16 h-16 rounded-2xl bg-[#FF5C00]/10 border border-[#FF5C00]/20 flex items-center justify-center mb-4 shadow-[0_0_15px_rgba(255,92,0,0.1)] group-hover:shadow-[0_0_25px_rgba(255,92,0,0.3)] transition-all duration-300"
-                whileHover={{ rotate: 90 }}
-                transition={{ type: "spring", stiffness: 200, damping: 10 }}
-              >
-                <Plus className="text-[#FF5C00]" size={30} />
-              </motion.div>
-              <span className="font-bold text-white text-lg mb-1 group-hover:text-[#FF5C00] transition-colors">New Canvas</span>
-              <span className="text-xs text-[#888] font-medium">Start building from scratch</span>
-            </div>
-          </motion.div>
+              <div className="absolute inset-[1px] bg-[#060403] rounded-3xl z-10 flex flex-col items-center justify-center transition-colors duration-500 group-hover:bg-[#0b0805]">
+                <motion.div 
+                  className="w-16 h-16 rounded-2xl bg-[#FF5C00]/10 border border-[#FF5C00]/20 flex items-center justify-center mb-4 shadow-[0_0_15px_rgba(255,92,0,0.1)] group-hover:shadow-[0_0_25px_rgba(255,92,0,0.3)] transition-all duration-300"
+                  whileHover={{ rotate: 90 }}
+                  transition={{ type: "spring", stiffness: 200, damping: 10 }}
+                >
+                  <Plus className="text-[#FF5C00]" size={30} />
+                </motion.div>
+                <span className="font-bold text-white text-lg mb-1 group-hover:text-[#FF5C00] transition-colors">New Canvas</span>
+                <span className="text-xs text-[#888] font-medium">Start building from scratch</span>
+              </div>
+            </motion.div>
 
-          {/* Render Saved Diagrams */}
-          {filteredDiagrams.length > 0 ? (
-            filteredDiagrams.map((diag) => (
+            {/* Template Cards */}
+            {filteredTemplates.map((tpl) => (
               <motion.div 
-                key={diag._id}
+                key={tpl.id}
                 variants={itemVariants}
-                onClick={() => handleOpenDiagram(diag)}
+                onClick={() => handleLoadTemplate(tpl)}
                 whileHover={{ scale: 1.03, y: -8 }}
                 whileTap={{ scale: 0.96 }}
                 transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                className="group relative h-56 rounded-3xl p-[1px] overflow-hidden cursor-pointer shadow-lg hover:shadow-[0_20px_40px_rgba(0,0,0,0.8)]"
+                className="group relative h-56 rounded-3xl p-[1px] overflow-hidden cursor-pointer shadow-lg hover:shadow-[0_20px_40px_rgba(255,92,0,0.15)]"
               >
-                {/* Border glow */}
-                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-[#FF5C00]/20 opacity-40 group-hover:from-[#FF5C00]/60 group-hover:to-[#FF5C00]/40 transition-all duration-700" />
-                
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-[#FF5C00]/10 opacity-40 group-hover:from-[#FF5C00]/40 group-hover:to-[#FF5C00]/20 transition-all duration-700" />
                 <div className="absolute inset-[1px] bg-[#0A0A0A] rounded-3xl z-10 p-6 flex flex-col justify-between transition-colors duration-500 group-hover:bg-[#100c0a]">
                   
-                  <div>
+                  <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                    {tpl.id.includes('serverless') ? <Database size={80} /> : <Server size={80} />}
+                  </div>
+
+                  <div className="relative z-10">
                     <div className="flex items-center gap-3 mb-4">
                       <motion.div 
-                        className="p-2.5 rounded-xl bg-white/5 border border-white/10 group-hover:border-[#FF5C00]/40 group-hover:bg-[#FF5C00]/10 transition-colors"
-                        whileHover={{ scale: 1.1, rotate: -10 }}
+                        className="p-2.5 rounded-xl bg-[#FF5C00]/10 border border-[#FF5C00]/20 group-hover:border-[#FF5C00]/40 transition-colors"
+                        whileHover={{ scale: 1.1, rotate: 10 }}
                       >
-                          <Box size={18} className="text-[#FF5C00]" />
+                          <Rocket size={18} className="text-[#FF5C00]" />
                       </motion.div>
-                      <h3 className="font-bold text-white text-xl truncate pr-2 tracking-tight group-hover:text-[#FF5C00] transition-colors">{diag.name}</h3>
+                      <h3 className="font-bold text-white text-xl truncate pr-2 tracking-tight group-hover:text-[#FF5C00] transition-colors">{tpl.name}</h3>
                     </div>
                     <p className="text-sm text-[#777] line-clamp-2 leading-relaxed font-medium group-hover:text-[#999] transition-colors">
-                      {diag.description || 'Untitled Architecture Draft'}
+                      {tpl.description}
                     </p>
                   </div>
                   
-                  <div className="flex items-center justify-between border-t border-white/5 pt-4 mt-4 text-xs font-bold text-[#555] uppercase tracking-wider group-hover:border-white/10 transition-colors">
-                    <div className="flex items-center gap-2">
-                      <Clock size={14} className="text-[#444] group-hover:text-[#FF5C00] transition-colors" />
-                      {new Date(diag.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </div>
-                    <motion.div
-                      initial={{ x: 0, opacity: 0.5 }}
-                      whileHover={{ x: 5, opacity: 1 }}
-                      className="flex items-center justify-center p-1 rounded-full group-hover:bg-white/5"
-                    >
-                      <ChevronRight size={16} className="text-[#444] group-hover:text-[#FF5C00] transition-all" />
-                    </motion.div>
+                  <div className="relative z-10 flex items-center justify-between border-t border-white/5 pt-4 mt-4 text-xs font-bold text-[#FF5C00] uppercase tracking-wider group-hover:border-white/10 transition-colors">
+                    <span>Load Template</span>
+                    <ChevronRight size={16} />
                   </div>
                 </div>
               </motion.div>
-            ))
-          ) : (
-            searchQuery && (
-              <motion.div variants={itemVariants} className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col items-center justify-center h-56 border border-white/10 rounded-3xl bg-[#0A0A0A]/50">
-                <Search size={32} className="text-[#444] mb-3" />
-                <h3 className="text-white font-bold text-lg">No diagrams found</h3>
-                <p className="text-[#777] text-sm mt-1">We couldn't find anything matching "{searchQuery}"</p>
+            ))}
+          </motion.div>
+        </section>
+
+        {/* =========================================
+            SECTION 2: SAVED DIAGRAMS
+            ========================================= */}
+        <section>
+          <div className="flex items-center gap-2 mb-6 pt-10 border-t border-white/10">
+            <LayoutTemplate size={20} className="text-[#888]" />
+            <h2 className="text-2xl font-bold text-white tracking-tight">Your Architectures</h2>
+          </div>
+
+          <motion.div 
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          >
+            {filteredDiagrams.length > 0 ? (
+              filteredDiagrams.map((diag) => (
+                <motion.div 
+                  key={diag._id}
+                  variants={itemVariants}
+                  onClick={() => handleOpenDiagram(diag)}
+                  whileHover={{ scale: 1.03, y: -8 }}
+                  whileTap={{ scale: 0.96 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                  className="group relative h-56 rounded-3xl p-[1px] overflow-hidden cursor-pointer shadow-lg hover:shadow-[0_20px_40px_rgba(0,0,0,0.8)]"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-[#FF5C00]/20 opacity-40 group-hover:from-[#FF5C00]/60 group-hover:to-[#FF5C00]/40 transition-all duration-700" />
+                  <div className="absolute inset-[1px] bg-[#0A0A0A] rounded-3xl z-10 p-6 flex flex-col justify-between transition-colors duration-500 group-hover:bg-[#100c0a]">
+                    <div>
+                      <div className="flex items-center gap-3 mb-4">
+                        <motion.div 
+                          className="p-2.5 rounded-xl bg-white/5 border border-white/10 group-hover:border-[#FF5C00]/40 group-hover:bg-[#FF5C00]/10 transition-colors"
+                          whileHover={{ scale: 1.1, rotate: -10 }}
+                        >
+                            <Box size={18} className="text-[#FF5C00]" />
+                        </motion.div>
+                        <h3 className="font-bold text-white text-xl truncate pr-2 tracking-tight group-hover:text-[#FF5C00] transition-colors">{diag.name}</h3>
+                      </div>
+                      <p className="text-sm text-[#777] line-clamp-2 leading-relaxed font-medium group-hover:text-[#999] transition-colors">
+                        {diag.description || 'Untitled Architecture Draft'}
+                      </p>
+                    </div>
+                    
+                    <div className="flex items-center justify-between border-t border-white/5 pt-4 mt-4 text-xs font-bold text-[#555] uppercase tracking-wider group-hover:border-white/10 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <Clock size={14} className="text-[#444] group-hover:text-[#FF5C00] transition-colors" />
+                        {new Date(diag.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                      <motion.div
+                        initial={{ x: 0, opacity: 0.5 }}
+                        whileHover={{ x: 5, opacity: 1 }}
+                        className="flex items-center justify-center p-1 rounded-full group-hover:bg-white/5"
+                      >
+                        <ChevronRight size={16} className="text-[#444] group-hover:text-[#FF5C00] transition-all" />
+                      </motion.div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))
+            ) : (
+              /* Empty State */
+              <motion.div variants={itemVariants} className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col items-center justify-center h-56 border border-white/10 border-dashed rounded-3xl bg-[#0A0A0A]/50">
+                {searchQuery ? (
+                  <>
+                    <Search size={32} className="text-[#444] mb-3" />
+                    <h3 className="text-white font-bold text-lg">No diagrams found</h3>
+                    <p className="text-[#777] text-sm mt-1">We couldn't find anything matching "{searchQuery}"</p>
+                  </>
+                ) : (
+                  <>
+                    <LayoutTemplate size={32} className="text-[#444] mb-3" />
+                    <h3 className="text-white font-bold text-lg">No saved architectures</h3>
+                    <p className="text-[#777] text-sm mt-1">Start by creating a new canvas or using a template above.</p>
+                  </>
+                )}
               </motion.div>
-            )
-          )}
-        </motion.div>
+            )}
+          </motion.div>
+        </section>
       </main>
     </div>
   );

@@ -49,3 +49,30 @@ export const getDiagramById = async (id) => {
     throw error;
   }
 };
+
+export const updateDiagramName = async (id, name) => {
+  try {
+    const { data } = await axios.put(
+      `${API_URL}/${id}`,
+      { name },
+      getAuthHeaders()
+    );
+    return data;
+  } catch (error) {
+    console.error('Error renaming diagram:', error.response?.data?.message || error.message);
+    throw error;
+  }
+};
+
+export const deleteDiagram = async (id) => {
+  try {
+    const { data } = await axios.delete(
+      `${API_URL}/${id}`,
+      getAuthHeaders()
+    );
+    return data;
+  } catch (error) {
+    console.error('Error deleting diagram:', error.response?.data?.message || error.message);
+    throw error;
+  }
+};

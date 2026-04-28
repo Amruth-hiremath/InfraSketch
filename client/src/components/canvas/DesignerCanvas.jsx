@@ -49,10 +49,12 @@ export default function DesignerCanvas() {
 
   // Inject warnings into node data for rendering
   const nodesWithWarnings = useMemo(() => {
-    return nodes.map((n) => ({
+    return (nodes || [])
+      .filter((n) => n != null)
+      .map((n) => ({
       ...n,
       data: {
-        ...n.data,
+        ...(n.data || {}),
         warnings: getWarningsForNode(n.id),
       },
     }));

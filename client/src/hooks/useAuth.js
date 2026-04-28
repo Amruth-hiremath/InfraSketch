@@ -1,42 +1,7 @@
 import { create } from 'zustand';
+import axios from 'axios';
 
-// Simulated API (only Firebase now)
-const mockApi = {
-  post: async (path, payload) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        if (path === '/api/auth/firebase') {
-          resolve({
-            data: {
-              token: 'mock-jwt-token',
-              user: {
-                name: 'Firebase User',
-                email: 'firebase@example.com',
-                id: 'firebase123'
-              }
-            }
-          });
-        }
-      }, 500);
-    });
-  },
-
-  get: async () => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          data: {
-            user: {
-              name: 'Demo User',
-              email: 'demo@example.com',
-              id: 'demo123'
-            }
-          }
-        });
-      }, 500);
-    });
-  }
-};
+const API_URL = 'http://localhost:5000/api/auth';
 
 const useAuthStore = create((set, get) => ({
   user: null,
@@ -47,7 +12,8 @@ const useAuthStore = create((set, get) => ({
   firebaseLogin: async (firebaseToken) => {
     set({ loading: true });
     try {
-      const { data } = await mockApi.post('/api/auth/firebase', { token: firebaseToken });
+      // Sending the Firebase token to the real backend
+      const { data } = await axios.post(`${API_URL}/firebase`, { token: firebaseToken });
 
       localStorage.setItem('infrasketch_token', data.token);
 
@@ -59,7 +25,8 @@ const useAuthStore = create((set, get) => ({
       });
 
       return true;
-    } catch {
+    } catch (err) {
+      console.error('Login Error:', err.response?.data?.message || err.message);
       set({ loading: false });
       return false;
     }
@@ -70,9 +37,15 @@ const useAuthStore = create((set, get) => ({
     if (!token) return;
 
     try {
-      const { data } = await mockApi.get('/api/auth/me');
+      // Fetching the user using the saved local JWT token
+      const { data } = await axios.get(`${API_URL}/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
       set({ user: data.user, isAuthenticated: true });
-    } catch {
+    } catch (err) {
+      console.error('Session expired or invalid token');
       get().logout();
     }
   },

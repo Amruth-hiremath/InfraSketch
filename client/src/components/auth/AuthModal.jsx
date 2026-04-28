@@ -27,6 +27,9 @@ export default function AuthModal({ onClose }) {
     if (!firebaseAuth) return;
     try {
       const provider = new GoogleAuthProvider();
+      // FIX: Force the "Choose an account" screen every single time
+      provider.setCustomParameters({ prompt: 'select_account' });
+      
       const result = await signInWithPopup(firebaseAuth, provider);
       const token = await result.user.getIdToken();
       const success = await firebaseLogin(token);
@@ -40,6 +43,9 @@ export default function AuthModal({ onClose }) {
     if (!firebaseAuth) return;
     try {
       const provider = new GithubAuthProvider();
+      // FIX: Force account selection
+      provider.setCustomParameters({ prompt: 'select_account' });
+
       const result = await signInWithPopup(firebaseAuth, provider);
       const token = await result.user.getIdToken();
       const success = await firebaseLogin(token);
@@ -49,53 +55,50 @@ export default function AuthModal({ onClose }) {
     }
   };
 
+  // FIX: Stripped the double-wrapper divs that were creating the grey bar.
+  // The layout/blur is completely handled by App.jsx now.
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal auth-modal" onClick={(e) => e.stopPropagation()}>
-        
-        {/* Close Button */}
-        <button className="modal__close" onClick={onClose}>
-          <X size={18} />
+    <div className="flex flex-col relative w-full h-full z-10">
+      
+      {/* Close Button */}
+      <button className="absolute -top-2 -right-2 p-2 text-white/50 hover:text-white transition-colors" onClick={onClose}>
+        <X size={20} />
+      </button>
+
+      {/* Header */}
+      <div className="flex flex-col items-center pt-4">
+        <div className="mb-4">
+          <img
+              src="/InfraSketch.png"
+              alt="InfraSketch Logo"
+              className="w-20 h-20 object-contain rounded-xl shadow-lg"
+          />
+        </div>
+        <h2 className="text-2xl font-bold text-white mb-1">Welcome</h2>
+        <p className="text-[#888] text-sm">Sign in to continue</p>
+      </div>
+
+      {/* Social Login */}
+      <div className="mt-8 space-y-3">
+        {/* Google */}
+        <button
+          className="w-full flex items-center justify-center gap-3 py-3.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors"
+          onClick={handleGoogleSignIn}
+          disabled={loading}
+        >
+          <FcGoogle size={20} />
+          <span className="text-white font-medium text-sm">{loading ? "Connecting..." : "Continue with Google"}</span>
         </button>
 
-        {/* Header */}
-        <div className="auth-modal__header">
-          <div className="auth-modal__logo">
-            <img
-                            src="/InfraSketch.png"
-                            alt="InfraSketch Logo"
-                            className="w-25 h-25 object-contain rounded-md"
-                        />
-          </div>
-          <h2>Welcome</h2>
-          <p>Sign in to continue</p>
-        </div>
-
-        {/* Social Login */}
-        <div className="auth-modal__social">
-          
-          {/* Google */}
-          <button
-            className="auth-modal__social-btn"
-            onClick={handleGoogleSignIn}
-            disabled={loading}
-          >
-            <FcGoogle size={20} />
-            <span>{loading ? "Connecting..." : "Continue with Google"}</span>
-          </button>
-
-          {/* GitHub */}
-          <button
-            className="auth-modal__social-btn"
-            onClick={handleGithubSignIn}
-            disabled={loading}
-          >
-            <FaGithub size={20} />
-            <span>{loading ? "Connecting..." : "Continue with GitHub"}</span>
-          </button>
-
-        </div>
-
+        {/* GitHub */}
+        <button
+          className="w-full flex items-center justify-center gap-3 py-3.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors"
+          onClick={handleGithubSignIn}
+          disabled={loading}
+        >
+          <FaGithub size={20} className="text-white" />
+          <span className="text-white font-medium text-sm">{loading ? "Connecting..." : "Continue with GitHub"}</span>
+        </button>
       </div>
     </div>
   );

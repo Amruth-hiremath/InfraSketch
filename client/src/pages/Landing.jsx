@@ -445,6 +445,11 @@ export default function Landing({ onLaunch, onSignIn, isAuthenticated, user }) {
         else setAuthOpen(true);
     };
 
+    const handleLaunch = () => {
+        if (onLaunch) onLaunch();
+        else setAuthOpen(true);
+    };
+
     return (
         <div className="bg-[#000] text-[#EDEDED] selection:bg-[#FF5C00]/30 selection:text-[#FF5C00]">
 
@@ -507,7 +512,7 @@ export default function Landing({ onLaunch, onSignIn, isAuthenticated, user }) {
                         <motion.button
                             whileHover={{ scale: 1.03 }}
                             whileTap={{ scale: 0.97 }}
-                            onClick={onLaunch}
+                            onClick={handleLaunch}
                             className="px-5 py-2 bg-[#FF5C00] text-black font-bold text-[14px] whitespace-nowrap rounded-xl shadow-[0_0_20px_-5px_#FF5C00] hover:bg-[#ff7a2a] transition-colors"
                         >
                             Launch →
@@ -669,7 +674,7 @@ export default function Landing({ onLaunch, onSignIn, isAuthenticated, user }) {
                             <motion.button
                                 whileHover={{ scale: 1.04 }}
                                 whileTap={{ scale: 0.96 }}
-                                onClick={onLaunch}
+                                onClick={handleLaunch}
                                 className="group relative px-10 py-4 bg-[#FF5C00] text-black font-bold text-sm tracking-wide rounded-xl overflow-hidden flex items-center gap-2 shadow-[0_0_50px_-12px_#FF5C00] w-full sm:w-auto justify-center"
                             >
                                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
@@ -677,16 +682,6 @@ export default function Landing({ onLaunch, onSignIn, isAuthenticated, user }) {
                                     Launch Workspace
                                     <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
                                 </span>
-                            </motion.button>
-
-                            <motion.button
-                                whileHover={{ scale: 1.04 }}
-                                whileTap={{ scale: 0.96 }}
-                                onClick={handleSignIn}
-                                className="px-10 py-4 bg-transparent border border-[#222] hover:border-[#333] text-white font-semibold text-sm rounded-xl transition-all flex items-center gap-2 w-full sm:w-auto justify-center"
-                            >
-                                <LogIn size={14} />
-                                {isAuthenticated ? `Hi, ${(user?.name || 'User').split(' ')[0]}` : 'Sign In Free'}
                             </motion.button>
                         </div>
 
@@ -717,7 +712,7 @@ export default function Landing({ onLaunch, onSignIn, isAuthenticated, user }) {
             </div>
 
             {/* ── Scroll Stack Section ───────────────────────────────── */}
-            <section id="features" ref={scrollStackRef} className="relative bg-[#000]" style={{ height: `${(FEATURE_CARDS.length + 1.5) * 100}vh` }}>
+            <section id="features" ref={scrollStackRef} className="relative bg-[#000]" style={{ position: 'relative', height: `${(FEATURE_CARDS.length + 1.5) * 100}vh` }}>
                 <div className="sticky top-0 h-screen overflow-hidden">
                     {/* Side progress dots */}
                     <div className="absolute right-5 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-2.5">
@@ -921,7 +916,7 @@ export default function Landing({ onLaunch, onSignIn, isAuthenticated, user }) {
                             <motion.button
                                 whileHover={{ scale: 1.03 }}
                                 whileTap={{ scale: 0.97 }}
-                                onClick={onLaunch}
+                                onClick={handleLaunch}
                                 className="mt-6 w-max flex items-center gap-2 text-xs font-bold text-[#FF5C00] border border-[#FF5C00]/20 hover:border-[#FF5C00]/50 bg-[#FF5C00]/5 hover:bg-[#FF5C00]/10 px-4 py-2 rounded-lg transition-all"
                             >
                                 Try it in the canvas <ArrowRight size={12} />
@@ -992,7 +987,7 @@ export default function Landing({ onLaunch, onSignIn, isAuthenticated, user }) {
                         <motion.button
                             whileHover={{ scale: 1.04 }}
                             whileTap={{ scale: 0.96 }}
-                            onClick={onLaunch}
+                            onClick={handleLaunch} // <--- This was the culprit! Fixed to handleLaunch
                             className="px-12 py-5 bg-[#FF5C00] text-black font-black text-sm tracking-wide rounded-xl flex items-center justify-center gap-2 w-full sm:w-auto min-w-[240px] shadow-[0_0_60px_-10px_#FF5C00] hover:bg-[#ff7a2a] transition-colors"
                         >
                             Start Sketching Now <ChevronRight size={15} />

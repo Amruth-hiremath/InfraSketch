@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getUserDiagrams, getDiagramById } from '../api/diagramsApi';
+import { updateDiagramName, deleteDiagram, getUserDiagrams, getDiagramById } from '../api/diagramsApi';
 import useDiagramStore from '../hooks/useDiagramStore';
 import useAuthStore from '../hooks/useAuth';
 import { Plus, LayoutTemplate, LogOut, Clock, ArrowLeft, ChevronRight, Box, Activity, Search, Hexagon, Rocket, Server, Database } from 'lucide-react';
@@ -12,10 +12,10 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const searchInputRef = useRef(null);
-  
+  const [activeMenu, setActiveMenu] = useState(null);
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
-  
+
   const loadDiagram = useDiagramStore((s) => s.loadDiagram);
   const clearDiagram = useDiagramStore((s) => s.clearDiagram);
 
@@ -34,7 +34,7 @@ export default function Dashboard() {
     const fetchDiagrams = async () => {
       try {
         const data = await getUserDiagrams();
-        setDiagrams(data.diagrams || []); 
+        setDiagrams(data.diagrams || []);
       } catch (error) {
         console.error('Failed to load diagrams');
       } finally {
@@ -44,11 +44,23 @@ export default function Dashboard() {
     fetchDiagrams();
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setActiveMenu(null);
+    };
+
+    window.addEventListener("click", handleClickOutside);
+
+    return () => {
+      window.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
+
   const handleOpenDiagram = async (selectedDiagram) => {
     try {
       const response = await getDiagramById(selectedDiagram._id);
       const { diagram } = response;
-      
+
       if (loadDiagram && diagram) {
         loadDiagram({
           id: diagram._id,
@@ -73,7 +85,7 @@ export default function Dashboard() {
   const handleLoadTemplate = (template) => {
     if (loadDiagram) {
       loadDiagram({
-        id: null, 
+        id: null,
         name: `Copy of ${template.name}`,
         description: template.description,
         nodes: template.nodes,
@@ -89,12 +101,46 @@ export default function Dashboard() {
     navigate('/');
   };
 
-  const filteredDiagrams = diagrams.filter(diag => 
-    diag.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const handleRename = async (diag) => {
+    const newName = prompt("Enter new name:", diag.name);
+    if (!newName || newName === diag.name) return;
+
+    try {
+      const res = await updateDiagramName(diag._id, newName);
+
+      setDiagrams(prev =>
+        prev.map(d =>
+          d._id === diag._id ? { ...d, name: res.diagram.name } : d
+        )
+      );
+    } catch (err) {
+      console.error("Rename failed", err);
+    }
+
+    setActiveMenu(null);
+  };
+
+  const handleDelete = async (id) => {
+    const confirmDelete = confirm("Delete this diagram?");
+    if (!confirmDelete) return;
+
+    try {
+      await deleteDiagram(id);
+
+      setDiagrams(prev => prev.filter(d => d._id !== id));
+    } catch (err) {
+      console.error("Delete failed", err);
+    }
+
+    setActiveMenu(null);
+  };
+
+  const filteredDiagrams = diagrams.filter(diag =>
+    diag.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (diag.description && diag.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const filteredTemplates = ARCHITECTURE_TEMPLATES.filter(tpl => 
+  const filteredTemplates = ARCHITECTURE_TEMPLATES.filter(tpl =>
     tpl.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -133,30 +179,30 @@ export default function Dashboard() {
 
       {/* Floating Nano Nav */}
       <div className="fixed top-0 left-0 right-0 z-50 flex justify-center w-full pt-6 pointer-events-none px-4">
-        <motion.nav 
+        <motion.nav
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           className="pointer-events-auto flex items-center justify-between w-full max-w-4xl px-4 py-3 rounded-full bg-[#0A0A0A]/80 backdrop-blur-md border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.6)]"
         >
-          <div 
+          <div
             onClick={() => navigate('/')}
             className="flex items-center justify-center cursor-pointer group bg-white/5 hover:bg-white/10 w-11 h-11 rounded-full transition-all border border-white/5 hover:border-white/10 shadow-sm flex-shrink-0"
             title="Return to Landing Page"
           >
             <ArrowLeft size={18} className="text-[#aaa] group-hover:text-white transition-colors" />
           </div>
-          
+
           <div className="flex items-center flex-1 max-w-xl mx-4 w-full relative group">
             <div className="absolute inset-0 bg-gradient-to-r from-[#FF5C00]/0 via-[#FF5C00]/10 to-[#FF5C00]/0 rounded-full opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
             <div className="flex items-center w-full bg-[#050505] border border-white/10 rounded-full px-5 py-2.5 focus-within:border-[#FF5C00]/50 focus-within:bg-[#080503] focus-within:shadow-[0_0_15px_rgba(255,92,0,0.2)] transition-all z-10 relative">
               <Search size={16} className="text-[#555] group-focus-within:text-[#FF5C00] transition-colors mr-3" />
-              <input 
+              <input
                 ref={searchInputRef}
-                type="text" 
+                type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search diagrams..." 
+                placeholder="Search diagrams..."
                 className="bg-transparent border-none outline-none text-sm text-white placeholder-[#555] w-full"
               />
               <div className="flex items-center space-x-1.5 opacity-60 ml-2">
@@ -166,8 +212,8 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <button 
-            onClick={handleLogout} 
+          <button
+            onClick={handleLogout}
             className="flex items-center justify-center gap-2.5 bg-white/5 hover:bg-white/10 px-5 py-2.5 rounded-full transition-all border border-white/5 hover:border-white/10 group flex-shrink-0"
           >
             <span className="text-sm font-bold text-[#aaa] group-hover:text-white transition-colors hidden sm:block">Log Out</span>
@@ -178,13 +224,13 @@ export default function Dashboard() {
 
       <main className="relative z-10 max-w-5xl mx-auto px-6 pt-36 pb-20">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: "easeOut" }} className="mb-12">
-            <h1 className="text-4xl md:text-5xl font-black text-white tracking-[-0.02em] leading-tight mb-3">
-              Your Infrastructure, <br className="hidden md:block" />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF5C00] to-[#FFa066]">Architected.</span>
-            </h1>
-            <p className="text-[#666] text-lg font-medium max-w-xl">
-              Create, analyze, and manage your cloud environments in real-time.
-            </p>
+          <h1 className="text-4xl md:text-5xl font-black text-white tracking-[-0.02em] leading-tight mb-3">
+            Your Infrastructure, <br className="hidden md:block" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF5C00] to-[#FFa066]">Architected.</span>
+          </h1>
+          <p className="text-[#666] text-lg font-medium max-w-xl">
+            Create, analyze, and manage your cloud environments in real-time.
+          </p>
         </motion.div>
 
         {/* =========================================
@@ -196,14 +242,14 @@ export default function Dashboard() {
             <h2 className="text-2xl font-bold text-white tracking-tight">Starter Templates</h2>
           </div>
 
-          <motion.div 
+          <motion.div
             variants={containerVariants}
             initial="hidden"
             animate="show"
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
           >
             {/* Create New Card (Always visible) */}
-            <motion.div 
+            <motion.div
               variants={itemVariants}
               onClick={handleCreateNew}
               whileHover={{ scale: 1.03, y: -8 }}
@@ -215,7 +261,7 @@ export default function Dashboard() {
               <div className="absolute -inset-2 bg-gradient-to-tr from-[#FF5C00]/20 to-transparent blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
 
               <div className="absolute inset-[1px] bg-[#060403] rounded-3xl z-10 flex flex-col items-center justify-center transition-colors duration-500 group-hover:bg-[#0b0805]">
-                <motion.div 
+                <motion.div
                   className="w-16 h-16 rounded-2xl bg-[#FF5C00]/10 border border-[#FF5C00]/20 flex items-center justify-center mb-4 shadow-[0_0_15px_rgba(255,92,0,0.1)] group-hover:shadow-[0_0_25px_rgba(255,92,0,0.3)] transition-all duration-300"
                   whileHover={{ rotate: 90 }}
                   transition={{ type: "spring", stiffness: 200, damping: 10 }}
@@ -229,7 +275,7 @@ export default function Dashboard() {
 
             {/* Template Cards */}
             {filteredTemplates.map((tpl) => (
-              <motion.div 
+              <motion.div
                 key={tpl.id}
                 variants={itemVariants}
                 onClick={() => handleLoadTemplate(tpl)}
@@ -240,18 +286,18 @@ export default function Dashboard() {
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-[#FF5C00]/10 opacity-40 group-hover:from-[#FF5C00]/40 group-hover:to-[#FF5C00]/20 transition-all duration-700" />
                 <div className="absolute inset-[1px] bg-[#0A0A0A] rounded-3xl z-10 p-6 flex flex-col justify-between transition-colors duration-500 group-hover:bg-[#100c0a]">
-                  
+
                   <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                     {tpl.id.includes('serverless') ? <Database size={80} /> : <Server size={80} />}
                   </div>
 
                   <div className="relative z-10">
                     <div className="flex items-center gap-3 mb-4">
-                      <motion.div 
+                      <motion.div
                         className="p-2.5 rounded-xl bg-[#FF5C00]/10 border border-[#FF5C00]/20 group-hover:border-[#FF5C00]/40 transition-colors"
                         whileHover={{ scale: 1.1, rotate: 10 }}
                       >
-                          <Rocket size={18} className="text-[#FF5C00]" />
+                        <Rocket size={18} className="text-[#FF5C00]" />
                       </motion.div>
                       <h3 className="font-bold text-white text-xl truncate pr-2 tracking-tight group-hover:text-[#FF5C00] transition-colors">{tpl.name}</h3>
                     </div>
@@ -259,7 +305,7 @@ export default function Dashboard() {
                       {tpl.description}
                     </p>
                   </div>
-                  
+
                   <div className="relative z-10 flex items-center justify-between border-t border-white/5 pt-4 mt-4 text-xs font-bold text-[#FF5C00] uppercase tracking-wider group-hover:border-white/10 transition-colors">
                     <span>Load Template</span>
                     <ChevronRight size={16} />
@@ -279,7 +325,7 @@ export default function Dashboard() {
             <h2 className="text-2xl font-bold text-white tracking-tight">Your Architectures</h2>
           </div>
 
-          <motion.div 
+          <motion.div
             variants={containerVariants}
             initial="hidden"
             animate="show"
@@ -287,7 +333,7 @@ export default function Dashboard() {
           >
             {filteredDiagrams.length > 0 ? (
               filteredDiagrams.map((diag) => (
-                <motion.div 
+                <motion.div
                   key={diag._id}
                   variants={itemVariants}
                   onClick={() => handleOpenDiagram(diag)}
@@ -297,14 +343,52 @@ export default function Dashboard() {
                   className="group relative h-56 rounded-3xl p-[1px] overflow-hidden cursor-pointer shadow-lg hover:shadow-[0_20px_40px_rgba(0,0,0,0.8)]"
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-[#FF5C00]/20 opacity-40 group-hover:from-[#FF5C00]/60 group-hover:to-[#FF5C00]/40 transition-all duration-700" />
+                  {/* Top-right menu */}
+                  <div className="absolute top-2 right-2 z-20">
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveMenu(diag._id === activeMenu ? null : diag._id);
+                      }}
+                      className="
+      p-2 rounded-lg
+      cursor-pointer
+      hover:bg-white/10
+      transition
+    "
+                    >
+                      <span className="text-lg text-[#888] hover:text-white">⋮</span>
+                    </div>
+
+                    {activeMenu === diag._id && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute right-0 mt-2 w-32 bg-[#0A0A0A] border border-white/10 rounded-xl shadow-lg overflow-hidden"
+                      >
+                        <button
+                          onClick={() => handleRename(diag)}
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-white/10"
+                        >
+                          Rename
+                        </button>
+
+                        <button
+                          onClick={() => handleDelete(diag._id)}
+                          className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <div className="absolute inset-[1px] bg-[#0A0A0A] rounded-3xl z-10 p-6 flex flex-col justify-between transition-colors duration-500 group-hover:bg-[#100c0a]">
                     <div>
                       <div className="flex items-center gap-3 mb-4">
-                        <motion.div 
+                        <motion.div
                           className="p-2.5 rounded-xl bg-white/5 border border-white/10 group-hover:border-[#FF5C00]/40 group-hover:bg-[#FF5C00]/10 transition-colors"
                           whileHover={{ scale: 1.1, rotate: -10 }}
                         >
-                            <Box size={18} className="text-[#FF5C00]" />
+                          <Box size={18} className="text-[#FF5C00]" />
                         </motion.div>
                         <h3 className="font-bold text-white text-xl truncate pr-2 tracking-tight group-hover:text-[#FF5C00] transition-colors">{diag.name}</h3>
                       </div>
@@ -312,7 +396,7 @@ export default function Dashboard() {
                         {diag.description || 'Untitled Architecture Draft'}
                       </p>
                     </div>
-                    
+
                     <div className="flex items-center justify-between border-t border-white/5 pt-4 mt-4 text-xs font-bold text-[#555] uppercase tracking-wider group-hover:border-white/10 transition-colors">
                       <div className="flex items-center gap-2">
                         <Clock size={14} className="text-[#444] group-hover:text-[#FF5C00] transition-colors" />

@@ -280,24 +280,18 @@ const PRICING_MATRIX = {
   },
 };
 
-/**
- * Calculate monthly cost for a single node
- */
 export function calculateNodeCost(serviceId, properties = {}) {
   const pricing = PRICING_MATRIX[serviceId];
   if (!pricing) return 0;
 
-  // Use custom compute function if available
   if (pricing.compute) {
     return pricing.compute(properties);
   }
 
-  // Use fixed monthly if set
   if (pricing.fixedMonthly !== undefined && !pricing.modifiers) {
     return pricing.fixedMonthly;
   }
 
-  // Calculate from modifiers
   let cost = pricing.base || 0;
   if (pricing.modifiers) {
     for (const [key, modMap] of Object.entries(pricing.modifiers)) {
@@ -316,16 +310,19 @@ export function calculateNodeCost(serviceId, properties = {}) {
   return cost;
 }
 
-/**
- * Calculate total monthly cost for all nodes
- */
 export function calculateTotalCost(nodes) {
   const perNodeCosts = {};
   let total = 0;
 
+  // FIX 1: Ensure nodes array is valid
+  if (!nodes || !Array.isArray(nodes)) return { totalMonthlyCost: total, perNodeCosts };
+
   for (const node of nodes) {
-    const serviceId = node.data?.serviceType || node.type;
-    const props = node.data?.properties || {};
+    // FIX 2: Ensure the node isn't null before trying to read .data
+    if (!node || !node.data) continue; 
+
+    const serviceId = node.data.serviceType || node.type;
+    const props = node.data.properties || {};
     const cost = calculateNodeCost(serviceId, props);
     perNodeCosts[node.id] = { serviceId, cost };
     total += cost;

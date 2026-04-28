@@ -91,12 +91,16 @@ const useDiagramStore = create((set, get) => ({
   },
 
   loadDiagram: ({ id, name, description, nodes, edges, viewport }) => {
+    // Sanitize incoming arrays to prevent null nodes/edges
+    const safeNodes = (nodes || []).filter(n => n != null);
+    const safeEdges = (edges || []).filter(e => e != null);
+
     set({
       diagramId: id || null,
       diagramName: name || 'Untitled Architecture',
       diagramDescription: description || '',
-      nodes: nodes || [],
-      edges: edges || [],
+      nodes: safeNodes,
+      edges: safeEdges,
       viewport: viewport || { x: 0, y: 0, zoom: 1 },
       selectedNodeId: null,
     });

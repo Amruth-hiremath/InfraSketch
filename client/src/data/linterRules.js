@@ -1,6 +1,11 @@
 // Architecture Linter Rules
 // Each rule validates a specific best practice and returns warnings
 
+// 🔥 SAFETY HELPERS (added)
+const isValidNode = (node) => node && node.data;
+const safeNodes = (nodes) => (nodes || []).filter(isValidNode);
+const safeEdges = (edges) => (edges || []).filter(Boolean);
+
 const LINTER_RULES = [
   {
     id: 'public-rds',
@@ -9,8 +14,9 @@ const LINTER_RULES = [
     description: 'RDS instance is not connected to a VPC, making it publicly accessible.',
     check: (nodes, edges) => {
       const warnings = [];
-      const rdsNodes = nodes.filter((n) => n.data?.serviceType === 'rds');
-      const vpcNodes = nodes.filter((n) => n.data?.serviceType === 'vpc');
+
+      const rdsNodes = nodes.filter((n) => n?.data?.serviceType === 'rds');
+      const vpcNodes = nodes.filter((n) => n?.data?.serviceType === 'vpc');
 
       if (vpcNodes.length === 0 && rdsNodes.length > 0) {
         rdsNodes.forEach((rds) => {
@@ -30,6 +36,7 @@ const LINTER_RULES = [
             (e.source === rds.id && vpcNodes.some((v) => v.id === e.target)) ||
             (e.target === rds.id && vpcNodes.some((v) => v.id === e.source))
         );
+
         if (!connectedToVpc) {
           warnings.push({
             nodeId: rds.id,
@@ -39,6 +46,7 @@ const LINTER_RULES = [
           });
         }
       });
+
       return warnings;
     },
   },
@@ -49,18 +57,23 @@ const LINTER_RULES = [
     severity: 'warning',
     description: 'Architecture has no CloudWatch for monitoring and alerting.',
     check: (nodes) => {
-      const hasCloudWatch = nodes.some((n) => n.data?.serviceType === 'cloudwatch');
+      const hasCloudWatch = nodes.some((n) => n?.data?.serviceType === 'cloudwatch');
+
       const hasCompute = nodes.some((n) =>
-        ['ec2', 'lambda', 'fargate', 'elastic-beanstalk'].includes(n.data?.serviceType)
+        ['ec2', 'lambda', 'fargate', 'elastic-beanstalk'].includes(n?.data?.serviceType)
       );
+
       if (hasCompute && !hasCloudWatch) {
-        return [{
-          nodeId: null,
-          ruleId: 'no-monitoring',
-          severity: 'warning',
-          message: 'No CloudWatch found. Add monitoring for your compute resources.',
-        }];
+        return [
+          {
+            nodeId: null,
+            ruleId: 'no-monitoring',
+            severity: 'warning',
+            message: 'No CloudWatch found. Add monitoring for your compute resources.',
+          },
+        ];
       }
+
       return [];
     },
   },
@@ -72,9 +85,10 @@ const LINTER_RULES = [
     description: 'S3 bucket is not behind CloudFront or connected to IAM.',
     check: (nodes, edges) => {
       const warnings = [];
-      const s3Nodes = nodes.filter((n) => n.data?.serviceType === 's3');
-      const cfNodes = nodes.filter((n) => n.data?.serviceType === 'cloudfront');
-      const iamNodes = nodes.filter((n) => n.data?.serviceType === 'iam');
+
+      const s3Nodes = nodes.filter((n) => n?.data?.serviceType === 's3');
+      const cfNodes = nodes.filter((n) => n?.data?.serviceType === 'cloudfront');
+      const iamNodes = nodes.filter((n) => n?.data?.serviceType === 'iam');
 
       s3Nodes.forEach((s3) => {
         const hasCloudFront = edges.some(
@@ -82,11 +96,13 @@ const LINTER_RULES = [
             (e.source === s3.id && cfNodes.some((c) => c.id === e.target)) ||
             (e.target === s3.id && cfNodes.some((c) => c.id === e.source))
         );
+
         const hasIAM = edges.some(
           (e) =>
             (e.source === s3.id && iamNodes.some((i) => i.id === e.target)) ||
             (e.target === s3.id && iamNodes.some((i) => i.id === e.source))
         );
+
         if (!hasCloudFront && !hasIAM) {
           warnings.push({
             nodeId: s3.id,
@@ -96,6 +112,7 @@ const LINTER_RULES = [
           });
         }
       });
+
       return warnings;
     },
   },
@@ -107,8 +124,9 @@ const LINTER_RULES = [
     description: 'Lambda function is not connected to an IAM role.',
     check: (nodes, edges) => {
       const warnings = [];
-      const lambdaNodes = nodes.filter((n) => n.data?.serviceType === 'lambda');
-      const iamNodes = nodes.filter((n) => n.data?.serviceType === 'iam');
+
+      const lambdaNodes = nodes.filter((n) => n?.data?.serviceType === 'lambda');
+      const iamNodes = nodes.filter((n) => n?.data?.serviceType === 'iam');
 
       lambdaNodes.forEach((fn) => {
         const hasIAM = edges.some(
@@ -116,6 +134,7 @@ const LINTER_RULES = [
             (e.source === fn.id && iamNodes.some((i) => i.id === e.target)) ||
             (e.target === fn.id && iamNodes.some((i) => i.id === e.source))
         );
+
         if (!hasIAM) {
           warnings.push({
             nodeId: fn.id,
@@ -125,6 +144,7 @@ const LINTER_RULES = [
           });
         }
       });
+
       return warnings;
     },
   },
@@ -136,19 +156,24 @@ const LINTER_RULES = [
     description: 'All resources are deployed in a single availability zone.',
     check: (nodes) => {
       const azs = new Set();
+
       nodes.forEach((n) => {
-        if (n.data?.properties?.availabilityZone) {
+        if (n?.data?.properties?.availabilityZone) {
           azs.add(n.data.properties.availabilityZone);
         }
       });
+
       if (nodes.length > 3 && azs.size <= 1) {
-        return [{
-          nodeId: null,
-          ruleId: 'single-az',
-          severity: 'warning',
-          message: 'All resources are in a single AZ. Consider multi-AZ for high availability.',
-        }];
+        return [
+          {
+            nodeId: null,
+            ruleId: 'single-az',
+            severity: 'warning',
+            message: 'All resources are in a single AZ. Consider multi-AZ for high availability.',
+          },
+        ];
       }
+
       return [];
     },
   },
@@ -161,6 +186,7 @@ const LINTER_RULES = [
     check: (nodes, edges) => {
       const warnings = [];
       const connectedIds = new Set();
+
       edges.forEach((e) => {
         connectedIds.add(e.source);
         connectedIds.add(e.target);
@@ -176,6 +202,7 @@ const LINTER_RULES = [
           });
         }
       });
+
       return warnings;
     },
   },
@@ -187,9 +214,14 @@ const LINTER_RULES = [
     description: 'Application Load Balancer is not connected to any compute targets.',
     check: (nodes, edges) => {
       const warnings = [];
-      const albNodes = nodes.filter((n) => n.data?.serviceType === 'alb');
+
+      const albNodes = nodes.filter((n) => n?.data?.serviceType === 'alb');
+
       const computeTypes = ['ec2', 'fargate', 'elastic-beanstalk', 'lambda'];
-      const computeNodes = nodes.filter((n) => computeTypes.includes(n.data?.serviceType));
+
+      const computeNodes = nodes.filter((n) =>
+        computeTypes.includes(n?.data?.serviceType)
+      );
 
       albNodes.forEach((alb) => {
         const hasTarget = edges.some(
@@ -197,6 +229,7 @@ const LINTER_RULES = [
             (e.source === alb.id && computeNodes.some((c) => c.id === e.target)) ||
             (e.target === alb.id && computeNodes.some((c) => c.id === e.source))
         );
+
         if (!hasTarget) {
           warnings.push({
             nodeId: alb.id,
@@ -206,20 +239,30 @@ const LINTER_RULES = [
           });
         }
       });
+
       return warnings;
     },
   },
 ];
 
-/**
- * Run all linter rules against the current architecture
- */
+// 🔥 FIXED RUNNER (this was the main issue)
 export function runLinter(nodes, edges) {
+  const validNodes = safeNodes(nodes);
+  const validEdges = safeEdges(edges);
+
   const allWarnings = [];
+
   for (const rule of LINTER_RULES) {
-    const warnings = rule.check(nodes, edges);
-    allWarnings.push(...warnings);
+    try {
+      const warnings = rule.check(validNodes, validEdges);
+      if (Array.isArray(warnings)) {
+        allWarnings.push(...warnings);
+      }
+    } catch (err) {
+      console.error(`Linter rule "${rule.id}" crashed:`, err);
+    }
   }
+
   return allWarnings;
 }
 

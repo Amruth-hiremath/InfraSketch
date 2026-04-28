@@ -1,0 +1,51 @@
+import axios from 'axios';
+import useAuthStore from '../hooks/useAuth';
+
+const API_URL = 'http://localhost:5000/api/diagrams';
+
+const getAuthHeaders = () => {
+  const token = useAuthStore.getState().token;
+  return {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  };
+};
+
+export const saveDiagram = async (diagramData) => {
+  try {
+    if (diagramData.id) {
+      // FIX: Update existing diagram
+      const { data } = await axios.put(`${API_URL}/${diagramData.id}`, diagramData, getAuthHeaders());
+      return data;
+    } else {
+      // Create new diagram
+      const { data } = await axios.post(API_URL, diagramData, getAuthHeaders());
+      return data;
+    }
+  } catch (error) {
+    console.error('Error saving diagram:', error.response?.data?.message || error.message);
+    throw error;
+  }
+};
+
+export const getUserDiagrams = async () => {
+  try {
+    const { data } = await axios.get(API_URL, getAuthHeaders());
+    return data;
+  } catch (error) {
+    console.error('Error fetching diagrams:', error.response?.data?.message || error.message);
+    throw error;
+  }
+};
+
+export const getDiagramById = async (id) => {
+  try {
+    const { data } = await axios.get(`${API_URL}/${id}`, getAuthHeaders());
+    return data;
+  } catch (error) {
+    console.error(`Error fetching diagram ${id}:`, error.response?.data?.message || error.message);
+    throw error;
+  }
+};

@@ -1,67 +1,120 @@
-import { useState, useEffect } from 'react';
-import { ReactFlowProvider } from '@xyflow/react';
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import Landing from './pages/Landing';
+import Dashboard from './pages/Dashboard';
 import DesignerCanvas from './components/canvas/DesignerCanvas';
 import ComponentPalette from './components/sidebar/ComponentPalette';
 import PropertyInspector from './components/inspector/PropertyInspector';
 import TopToolbar from './components/toolbar/TopToolbar';
-import LinterPanel from './components/linter/LinterPanel';
 import AuthModal from './components/auth/AuthModal';
+import LinterPanel from './components/linter/LinterPanel';
 import useAuthStore from './hooks/useAuth';
-import Landing from './pages/Landing';
 import './App.css';
 
-function App() {
-  const [showAuth, setShowAuth] = useState(false);
-  const [inWorkspace, setInWorkspace] = useState(false);
+// Secure Wrapper for Protected Pages
+const ProtectedRoute = ({ children }) => {
+  const { isAuthenticated } = useAuthStore();
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  return children;
+};
 
-  const fetchUser = useAuthStore((s) => s.fetchUser);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const user = useAuthStore((s) => s.user);
+// Layout for the canvas
+const EditorLayout = () => {
+  return (
+    <div className="app">
+      <div className="app__canvas-area">
+        <DesignerCanvas />
+        <LinterPanel />
+      </div>
+      <div className="app__workspace pointer-events-none [&>*]:pointer-events-auto">
+        <ComponentPalette />
+        <PropertyInspector />
+      </div>
+      <div className="pointer-events-auto z-[100]">
+        <TopToolbar />
+      </div>
+    </div>
+  );
+};
+
+// We create an internal component to utilize the useNavigate hook!
+const AppContent = () => {
+  const { isAuthenticated, user } = useAuthStore();
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const navigate = useNavigate();
+
+  return (
+    <>
+      <Routes>
+        {/* FIX: The Root URL always serves the Landing Page! */}
+        <Route
+          path="/"
+          element={
+            <Landing
+              // FIX: If logged in, buttons navigate to Dashboard instead of opening modal
+              onLaunch={() => isAuthenticated ? navigate('/dashboard') : setIsAuthModalOpen(true)}
+              onSignIn={() => isAuthenticated ? navigate('/dashboard') : setIsAuthModalOpen(true)}
+              isAuthenticated={isAuthenticated}
+              user={user}
+            />
+          }
+        />
+
+        {/* PROTECTED: Dashboard & App */}
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/app" element={<ProtectedRoute><EditorLayout /></ProtectedRoute>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+
+      {/* Global Auth Modal Overlay */}
+      <AnimatePresence>
+        {isAuthModalOpen && !isAuthenticated && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xl"
+            onClick={() => setIsAuthModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.92, y: 30, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.92, y: 20, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 220, damping: 18 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-3xl p-6 bg-white/5 backdrop-blur-2xl border border-white/10 shadow-[0_20px_80px_rgba(0,0,0,0.6)] relative overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-[#FF5C00]/10 via-transparent to-transparent pointer-events-none" />
+              <AuthModal onClose={() => setIsAuthModalOpen(false)} />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
+
+export default function App() {
+  const { fetchUser, loading } = useAuthStore();
 
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchUser();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated]);
+    fetchUser();
+  }, [fetchUser]);
 
-  if (!inWorkspace) {
+  if (loading) {
     return (
-      <>
-        <Landing
-          onLaunch={() => setInWorkspace(true)}
-          onSignIn={() => setShowAuth(true)}
-          isAuthenticated={isAuthenticated}
-          user={user}
-        />
-        {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
-      </>
+      <div className="h-screen w-screen bg-black flex items-center justify-center text-white font-mono text-sm">
+        Initializing Workspace...
+      </div>
     );
   }
 
+  // Router must be at the very top level
   return (
-    <ReactFlowProvider>
-      <div className="app bg-[#000000] text-gray-200">
-        <TopToolbar
-          onOpenAuth={() => setShowAuth(true)}
-          onNavigateHome={() => setInWorkspace(false)}
-        />
-
-        <div className="app__workspace border-t border-white/5">
-          <ComponentPalette />
-
-          <div className="app__canvas-area bg-[#0A0A0A]">
-            <DesignerCanvas />
-            <LinterPanel />
-          </div>
-
-          <PropertyInspector />
-        </div>
-
-        {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
-      </div>
-    </ReactFlowProvider>
+    <Router>
+      <AppContent />
+    </Router>
   );
 }
-
-export default App;

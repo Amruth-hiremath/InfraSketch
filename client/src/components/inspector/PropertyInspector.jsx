@@ -17,7 +17,7 @@ export default function PropertyInspector() {
   const { perNodeCosts } = useCostCalculator();
 
   const selectedNode = useMemo(
-    () => nodes.find((n) => n.id === selectedNodeId),
+    () => nodes.find((n) => n && n.id === selectedNodeId),
     [nodes, selectedNodeId]
   );
 

@@ -1,29 +1,60 @@
 import { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Download, Upload, Image, LogIn, LogOut, Plus,
-  User, FileJson, Home, DollarSign, ChevronDown,
-  Pencil, Save, FolderOpen
+  Download, Upload, Image, Plus, FileJson, Home, 
+  ChevronDown, Pencil, Save, FolderOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useDiagramStore from '../../hooks/useDiagramStore';
+import { saveDiagram } from '../../api/diagramsApi';
 import useAuthStore from '../../hooks/useAuth';
 import CostWidget from './CostWidget';
 import { exportCanvasAsPNG, exportDiagramAsJSON, importDiagramFromJSON } from '../../utils/exportUtils';
 
-export default function TopToolbar({ onOpenAuth, onNavigateHome }) {
+export default function TopToolbar() {
+  const navigate = useNavigate(); // FIX: To make the Home button work
+  
   const diagramName = useDiagramStore((s) => s.diagramName);
   const setDiagramMeta = useDiagramStore((s) => s.setDiagramMeta);
   const getDiagramJSON = useDiagramStore((s) => s.getDiagramJSON);
   const loadDiagram = useDiagramStore((s) => s.loadDiagram);
   const clearDiagram = useDiagramStore((s) => s.clearDiagram);
 
-  const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const logout = useAuthStore((s) => s.logout);
-
   const fileInputRef = useRef(null);
+
   const [editingName, setEditingName] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('');
+
+  const handleSave = async () => {
+    if (!isAuthenticated) {
+      alert("Please login first");
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveStatus('');
+
+    try {
+      const payload = getDiagramJSON();
+      const savedData = await saveDiagram(payload);
+
+      // FIX: Capture the MongoDB _id so we don't create multiple copies
+      if (!payload.id && savedData.diagram && savedData.diagram._id) {
+        setDiagramMeta({ id: savedData.diagram._id });
+      }
+
+      setSaveStatus('success');
+      setTimeout(() => setSaveStatus(''), 3000);
+    } catch (error) {
+      console.error("Save failed:", error);
+      setSaveStatus('error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleExportPNG = async () => {
     setExportMenuOpen(false);
@@ -49,13 +80,11 @@ export default function TopToolbar({ onOpenAuth, onNavigateHome }) {
   };
 
   return (
-    
     <div className="toolbar">
-      
-      {/* Left: Brand + Name */}
       <div className="toolbar__left">
+        {/* FIX: Home Button navigation */}
         <button
-          onClick={onNavigateHome}
+          onClick={() => navigate('/dashboard')}
           className="toolbar__icon-btn"
           title="Back to Home"
         >
@@ -64,7 +93,6 @@ export default function TopToolbar({ onOpenAuth, onNavigateHome }) {
 
         <div className="toolbar__divider" />
 
-        {/* Diagram name */}
         {editingName ? (
           <input
             autoFocus
@@ -88,37 +116,38 @@ export default function TopToolbar({ onOpenAuth, onNavigateHome }) {
         )}
       </div>
 
-      {/* Center: Cost */}
       <div className="toolbar__center">
         <CostWidget />
       </div>
 
-      {/* Right: Actions + Auth */}
       <div className="toolbar__right">
-        <button
-          onClick={clearDiagram}
-          className="toolbar__btn"
-          title="New diagram"
-        >
+        <button onClick={clearDiagram} className="toolbar__btn" title="New diagram">
           <Plus size={14} />
           <span>New</span>
         </button>
 
         <button
-          onClick={() => fileInputRef.current?.click()}
-          className="toolbar__icon-btn"
-          title="Import JSON"
+          onClick={handleSave}
+          disabled={isSaving}
+          className={`toolbar__btn ${
+            isSaving ? 'opacity-50 cursor-not-allowed' :
+            saveStatus === 'success' ? 'bg-green-500 text-black' :
+            saveStatus === 'error' ? 'bg-red-500 text-white' : ''
+          }`}
+          title="Save diagram"
         >
+          <Save size={14} />
+          <span>
+            {isSaving ? 'Saving...' : saveStatus === 'success' ? 'Saved!' : saveStatus === 'error' ? 'Error' : 'Save'}
+          </span>
+        </button>
+
+        <button onClick={() => fileInputRef.current?.click()} className="toolbar__icon-btn" title="Import JSON">
           <FolderOpen size={15} />
         </button>
 
-        {/* Export dropdown */}
         <div className="toolbar__export-wrap">
-          <button
-            onClick={() => setExportMenuOpen(!exportMenuOpen)}
-            className="toolbar__btn"
-            title="Export"
-          >
+          <button onClick={() => setExportMenuOpen(!exportMenuOpen)} className="toolbar__btn" title="Export">
             <Upload size={14} />
             <span>Export</span>
             <ChevronDown size={11} className={`transition-transform ${exportMenuOpen ? 'rotate-180' : ''}`} />
@@ -155,13 +184,7 @@ export default function TopToolbar({ onOpenAuth, onNavigateHome }) {
           </AnimatePresence>
         </div>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json"
-          onChange={handleImportJSON}
-          className="toolbar__file-input"
-        />
+        <input ref={fileInputRef} type="file" accept=".json" onChange={handleImportJSON} className="toolbar__file-input" />
       </div>
     </div>
   );

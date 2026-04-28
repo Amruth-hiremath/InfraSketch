@@ -362,6 +362,29 @@ const AWS_SERVICES = [
     ],
   },
   {
+    id: 'api-gateway',
+    name: 'API Gateway',
+    fullName: 'Amazon API Gateway',
+    category: 'networking',
+    description: 'Create, maintain, and secure APIs at any scale',
+    defaultProperties: {
+      endpointType: 'Regional',
+      authorization: 'None',
+      region: 'us-east-1',
+      availabilityZone: 'a',
+    },
+    propertySchema: [
+      {
+        key: 'endpointType', label: 'Endpoint Type', type: 'select',
+        options: ['Edge-optimized', 'Regional', 'Private'],
+      },
+      {
+        key: 'authorization', label: 'Authorization', type: 'select',
+        options: ['None', 'AWS IAM', 'Cognito User Pools', 'Custom Customizer'],
+      },
+    ],
+  },
+  {
     id: 'cloudfront',
     name: 'CloudFront',
     fullName: 'Amazon CloudFront',

@@ -21,7 +21,11 @@ if (!process.env.JWT_SECRET && process.env.NODE_ENV !== "test") {
 }
 
 // DB connect
-connectDB();
+if (process.env.NODE_ENV !== "test") {
+  connectDB();
+} else {
+  console.log("Skipping DB connection in test environment");
+}
 
 const app = express();
 

@@ -1,7 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import useDiagramStore from '../../hooks/useDiagramStore';
 import { useToast } from '../../hooks/useToast';
-
 export default function ShareModal({ open, onClose }) {
   const { diagramId, isPublic } = useDiagramStore();
 

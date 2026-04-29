@@ -1,8 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+dotenv.config();
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 
 import connectDB from './config/db.js';
 import authRoutes from './routes/auth.js';
@@ -10,12 +10,13 @@ import diagramRoutes from './routes/diagrams.js';
 import templateRoutes from './routes/templates.js';
 
 import logger from "./config/logger.js";
+import { authLimiter, apiLimiter } from "./config/rateLimiter.js";
+import compression from 'compression';
 
-dotenv.config();
 
 // Critical env check
 if (!process.env.JWT_SECRET) {
-  console.error("FATAL ERROR: JWT_SECRET is not defined");
+  logger.error("FATAL ERROR: JWT_SECRET is not defined");
   process.exit(1);
 }
 
@@ -24,47 +25,61 @@ connectDB();
 
 const app = express();
 
+app.disable('x-powered-by');
+
+app.use((req, res, next) => {
+  logger.info(`${req.method} ${req.url}`);
+  next();
+});
+
+app.use(compression());
+
 app.set('trust proxy', 1);
 
 // Security headers
 app.use(
   helmet({
     crossOriginResourcePolicy: false,
+    contentSecurityPolicy: false, // disable for now (React needs flexibility)
   })
 );
 
+
 // CORS (controlled)
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  'http://localhost:5173',
+];
+
+app.use((req, res, next) => {
+  next({
+    status: 404,
+    message: "Route not found",
+  });
+});
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      if (!origin && process.env.NODE_ENV === "development") {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   })
 );
 
-app.use(express.json({ limit: '1mb' }));
-
-
-// General API limiter
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Strict auth limiter
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: {
-    success: false,
-    message: 'Too many auth attempts, try again later',
-  },
-});
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Apply limiters
-app.use('/api', apiLimiter);
 app.use('/api/auth', authLimiter);
+app.use('/api', apiLimiter);
 
 // Routes
 app.use('/api/auth', authRoutes);

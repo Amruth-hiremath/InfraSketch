@@ -5,6 +5,7 @@ import User from '../models/User.js';
 import { protect } from '../middleware/auth.js';
 import admin from '../config/firebase.js';
 import logger from "../config/logger.js";
+import { safeEmail } from '../utils/sanitizeLog.js';
 
 const router = express.Router();
 
@@ -88,13 +89,13 @@ router.post(
       const user = await User.findOne({ email });
 
       if (user && (await user.matchPassword(password))) {
-        logger.info(`User logged in: ${email}`);
+        logger.info(`User logged in: ${safeEmail(email)}`);
         res.json({
           user: { _id: user._id, name: user.name, email: user.email },
           token: generateToken(user._id),
         });
       } else {
-        logger.warn(`Invalid login attempt: ${email}`);
+        logger.warn(`Invalid login attempt: ${safeEmail(email)}`);
         return next({ status: 401, message: 'Invalid email or password' });
       }
     } catch (error) {

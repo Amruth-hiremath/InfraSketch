@@ -3,6 +3,8 @@ import Template from '../models/Template.js';
 import { protect } from '../middleware/auth.js';
 import mongoose from 'mongoose';
 import logger from '../config/logger.js';
+import { validateTemplate, handleTemplateValidation } from '../validators/templateValidator.js';
+import { safeUser } from '../utils/sanitizeLog.js';
 
 const router = express.Router();
 
@@ -22,7 +24,9 @@ router.get('/', protect, async (req, res, next) => {
 });
 
 // CREATE template
-router.post('/', protect, async (req, res, next) => {
+router.post('/', protect, validateTemplate, async (req, res, next) => {
+  if (handleTemplateValidation(req, next)) return;
+
   try {
     const { name, description, nodes, edges, viewport } = req.body;
 
@@ -37,7 +41,8 @@ router.post('/', protect, async (req, res, next) => {
 
     const createdTemplate = await template.save();
 
-    logger.info(`Template created by user ${req.user._id}`);
+    logger.info(`Template created by ${safeUser(req.user._id)}`);
+
     res.status(201).json({ template: createdTemplate });
 
   } catch (error) {
@@ -74,8 +79,9 @@ router.delete('/:id', protect, async (req, res, next) => {
 });
 
 // UPDATE template
-router.put('/:id', protect, async (req, res, next) => {
+router.put('/:id', protect, validateTemplate, async (req, res, next) => {
   try {
+    if (handleTemplateValidation(req, next)) return;
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {

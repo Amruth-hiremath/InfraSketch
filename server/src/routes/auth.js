@@ -148,7 +148,7 @@ router.post('/firebase', async (req, res, next) => {
 
 // @route   GET /api/auth/me
 // @access  Private
-router.get('/me', protect, async (req, res) => {
+router.get('/me', protect, async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id).select('-password');
 

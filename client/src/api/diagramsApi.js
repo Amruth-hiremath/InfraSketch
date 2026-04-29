@@ -18,6 +18,15 @@ export const getPublicDiagram = async (id) => {
   return data;
 };
 
+export const toggleDiagramVisibility = async (id) => {
+  const { data } = await axios.patch(
+    `${API_URL}/${id}/visibility`,
+    {},
+    getAuthHeaders()
+  );
+  return data;
+};
+
 export const saveDiagram = async (diagramData) => {
   try {
     if (

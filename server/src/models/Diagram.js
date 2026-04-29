@@ -45,6 +45,10 @@ const diagramSchema = mongoose.Schema(
       y: { type: Number, default: 0 },
       zoom: { type: Number, default: 1 },
     },
+    isPublic: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

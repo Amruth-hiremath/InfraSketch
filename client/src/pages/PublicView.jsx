@@ -17,8 +17,8 @@ export default function PublicView() {
     useEffect(() => {
         const fetchDiagram = async () => {
             try {
-                const { diagram } = await getPublicDiagram(id);
-                loadDiagram(diagram);
+                const data = await getPublicDiagram(id);
+                loadDiagram(data);
                 setViewMode(true);
                 useDiagramStore.getState().setPublicView(true);
             } catch (err) {

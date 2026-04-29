@@ -1,17 +1,8 @@
-import axios from 'axios';
+import axios from './axiosInstance';
 import useAuthStore from '../hooks/useAuth';
 
-const API_URL = 'http://localhost:5000/api/diagrams';
-
-const getAuthHeaders = () => {
-  const token = useAuthStore.getState().token;
-  return {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  };
-};
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+const API_URL = `${BASE_URL}/api/diagrams`;
 
 export const getPublicDiagram = async (id) => {
   const { data } = await axios.get(`${API_URL}/public/${id}`);
@@ -21,8 +12,7 @@ export const getPublicDiagram = async (id) => {
 export const toggleDiagramVisibility = async (id) => {
   const { data } = await axios.patch(
     `${API_URL}/${id}/visibility`,
-    {},
-    getAuthHeaders()
+    {}
   );
   return data;
 };
@@ -39,11 +29,11 @@ export const saveDiagram = async (diagramData) => {
 
     if (diagramData.id) {
       // FIX: Update existing diagram
-      const { data } = await axios.put(`${API_URL}/${diagramData.id}`, diagramData, getAuthHeaders());
+      const { data } = await axios.put(`${API_URL}/${diagramData.id}`, diagramData);
       return data;
     } else {
       // Create new diagram
-      const { data } = await axios.post(API_URL, diagramData, getAuthHeaders());
+      const { data } = await axios.post(API_URL, diagramData);
       return data;
     }
   } catch (error) {
@@ -54,7 +44,7 @@ export const saveDiagram = async (diagramData) => {
 
 export const getUserDiagrams = async () => {
   try {
-    const { data } = await axios.get(API_URL, getAuthHeaders());
+    const { data } = await axios.get(API_URL);
     return data;
   } catch (error) {
     console.error('Error fetching diagrams:', error.response?.data?.message || error.message);
@@ -64,7 +54,7 @@ export const getUserDiagrams = async () => {
 
 export const getDiagramById = async (id) => {
   try {
-    const { data } = await axios.get(`${API_URL}/${id}`, getAuthHeaders());
+    const { data } = await axios.get(`${API_URL}/${id}`);
     return data;
   } catch (error) {
     console.error(`Error fetching diagram ${id}:`, error.response?.data?.message || error.message);
@@ -76,8 +66,7 @@ export const updateDiagramName = async (id, name) => {
   try {
     const { data } = await axios.put(
       `${API_URL}/${id}`,
-      { name },
-      getAuthHeaders()
+      { name }
     );
     return data;
   } catch (error) {
@@ -89,8 +78,7 @@ export const updateDiagramName = async (id, name) => {
 export const deleteDiagram = async (id) => {
   try {
     const { data } = await axios.delete(
-      `${API_URL}/${id}`,
-      getAuthHeaders()
+      `${API_URL}/${id}`
     );
     return data;
   } catch (error) {

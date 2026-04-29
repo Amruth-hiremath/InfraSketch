@@ -1,0 +1,42 @@
+name: InfraSketch CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: test
+      JWT_SECRET: testsecret
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # FRONTEND
+      - name: Install frontend deps
+        working-directory: ./client
+        run: npm install
+
+      - name: Build frontend
+        working-directory: ./client
+        run: npm run build
+
+      # BACKEND
+      - name: Install backend deps
+        working-directory: ./server
+        run: npm install
+
+      - name: Check backend startup
+        working-directory: ./server
+        run: node -e "import('./src/index.js')"

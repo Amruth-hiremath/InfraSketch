@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import axios from 'axios';
+import axios from "../api/axiosInstance";
 
-const API_URL = 'http://localhost:5000/api/auth';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+const API_URL = `${BASE_URL}/api/auth`;
 
 const useAuthStore = create((set, get) => ({
   user: null,

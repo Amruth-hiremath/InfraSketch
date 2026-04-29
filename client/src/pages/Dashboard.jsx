@@ -203,10 +203,10 @@ export default function Dashboard() {
 
     navigate('/app');
   };
-
+  
   const handleLogout = () => {
     logout();
-    navigate('/');
+    navigate('/', { replace: true });
   };
 
   const handleRename = (diag) => {

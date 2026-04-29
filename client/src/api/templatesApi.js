@@ -1,25 +1,13 @@
-import axios from 'axios';
+import axios from './axiosInstance';
 import useAuthStore from '../hooks/useAuth';
 
-const API_URL = 'http://localhost:5000/api/templates';
-
-// auth headers (same pattern as diagrams)
-const getAuthHeaders = () => {
-  const token = useAuthStore.getState().token;
-
-  return {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  };
-};
-
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+const API_URL = `${BASE_URL}/api/templates`;
 
 // GET all user templates
 export const getUserTemplates = async () => {
   try {
-    const { data } = await axios.get(API_URL, getAuthHeaders());
+    const { data } = await axios.get(API_URL);
     return data;
   } catch (error) {
     console.error('Error fetching templates:', error.response?.data?.message || error.message);

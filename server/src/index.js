@@ -15,7 +15,7 @@ import compression from 'compression';
 
 
 // Critical env check
-if (!process.env.JWT_SECRET) {
+if (!process.env.JWT_SECRET && process.env.NODE_ENV !== "test") {
   logger.error("FATAL ERROR: JWT_SECRET is not defined");
   process.exit(1);
 }
@@ -51,13 +51,6 @@ const allowedOrigins = [
   'http://localhost:5173',
 ];
 
-app.use((req, res, next) => {
-  next({
-    status: 404,
-    message: "Route not found",
-  });
-});
-
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -75,6 +68,7 @@ app.use(
   })
 );
 
+app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Apply limiters
@@ -89,6 +83,13 @@ app.use('/api/templates', templateRoutes);
 // Health route
 app.get('/', (req, res) => {
   res.send('InfraSketch API is running...');
+});
+
+app.use((req, res, next) => {
+  next({
+    status: 404,
+    message: "Route not found",
+  });
 });
 
 // Global error handler

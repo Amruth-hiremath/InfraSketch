@@ -10,7 +10,7 @@ export default function PublicView() {
 
     const loadDiagram = useDiagramStore((s) => s.loadDiagram);
     const setViewMode = useDiagramStore((s) => s.setViewMode);
-
+    const [error, setError] = useState(null);
     const [loading, setLoading] = useState(true);
     const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -23,6 +23,11 @@ export default function PublicView() {
                 useDiagramStore.getState().setPublicView(true);
             } catch (err) {
                 console.error("Failed to load public diagram");
+                if (err.response?.status === 404) {
+                    setError("This diagram is private or no longer available.");
+                } else {
+                    setError("Something went wrong while loading the diagram.");
+                }
             } finally {
                 setLoading(false);
             }
@@ -36,7 +41,7 @@ export default function PublicView() {
         const handleFullscreenChange = () => {
             setIsFullscreen(!!document.fullscreenElement);
         };
-        
+
         document.addEventListener('fullscreenchange', handleFullscreenChange);
         return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
     }, []);
@@ -53,6 +58,24 @@ export default function PublicView() {
             }
         }
     };
+    
+    if (error) {
+    return (
+        <div className="h-screen w-screen bg-black flex flex-col items-center justify-center text-white text-center px-6">
+            <h1 className="text-2xl font-bold text-[#FF5C00] mb-2">
+                Diagram Unavailable
+            </h1>
+            <p className="text-white/70 mb-4">{error}</p>
+
+            <button
+                onClick={() => window.location.href = "/"}
+                className="px-4 py-2 bg-[#FF5C00] text-black rounded-lg text-sm font-semibold hover:bg-[#ff7a2a]"
+            >
+                Go Home
+            </button>
+        </div>
+    );
+}
 
     if (loading) {
         return (

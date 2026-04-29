@@ -42,7 +42,7 @@ router.post(
       const userExists = await User.findOne({ email });
 
       if (userExists) {
-        logger.warn(`Register attempt with existing email: ${email}`);
+        logger.warn(`Register attempt with existing email: ${safeEmail(email)}`);
         return next({ status: 400, message: 'User already exists' });
       }
 
@@ -52,7 +52,7 @@ router.post(
         password,
       });
 
-      logger.info(`User registered: ${email}`);
+      logger.info(`User registered: ${safeEmail(email)}`);
 
       res.status(201).json({
         user: { _id: user._id, name: user.name, email: user.email },
@@ -130,7 +130,7 @@ router.post('/firebase', async (req, res, next) => {
     }
 
     const jwtToken = generateToken(user._id);
-    logger.info(`Firebase login: ${email}`);
+    logger.info(`Firebase login: ${safeEmail(email)}`);
 
     res.json({
       token: jwtToken,

@@ -25,7 +25,11 @@ import './App.css';
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated } = useAuthStore();
-  if (!isAuthenticated) return <Navigate to="/" replace />;
+
+  if (!isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
   return children;
 };
 
@@ -196,8 +200,16 @@ export default function App() {
   const { fetchUser, loading } = useAuthStore();
 
   useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
+  const init = async () => {
+    try {
+      await fetchUser();
+    } catch (err) {
+      console.error("Auth check failed");
+    }
+  };
+
+  init();
+}, [fetchUser]);
 
   if (loading) {
     return (

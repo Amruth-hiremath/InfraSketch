@@ -15,7 +15,7 @@ export const getDiagrams = async (req, res, next) => {
             nodeCount: d.nodes.length
         }));
 
-        logger.info(`Fetched diagrams for user ${req.user._id}`);
+        logger.info(`Fetched diagrams for user ${safeUser(req.user._id)}`);
         res.json({ diagrams: formatted });
 
     } catch (error) {

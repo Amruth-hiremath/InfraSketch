@@ -14,7 +14,7 @@ router.get('/', protect, async (req, res, next) => {
     const templates = await Template.find({ user: req.user._id })
       .sort({ createdAt: -1 });
 
-    logger.info(`Fetched templates for user ${req.user._id}`);
+    logger.info(`Fetched templates for user ${safeUser(req.user._id)}`);
     res.json({ templates });
 
   } catch (error) {

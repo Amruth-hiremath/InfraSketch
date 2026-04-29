@@ -1,11 +1,12 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
+import logger from "./logger.js";
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/infrasketch');
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    await mongoose.connect(process.env.MONGODB_URI);
+    logger.info("MongoDB connected");
   } catch (error) {
-    console.error(`Error: ${error.message}`);
+    logger.error(`MongoDB connection error: ${error.message}`);
     process.exit(1);
   }
 };

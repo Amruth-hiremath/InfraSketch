@@ -94,4 +94,20 @@ router.delete('/:id', protect, async (req, res) => {
   }
 });
 
+// @route   GET /api/diagrams/public/:id
+// @access  Public
+router.get('/public/:id', async (req, res) => {
+  try {
+    const diagram = await Diagram.findById(req.params.id);
+
+    if (!diagram) {
+      return res.status(404).json({ message: 'Diagram not found' });
+    }
+
+    res.json({ diagram });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 export default router;

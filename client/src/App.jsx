@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import DesignerCanvas from './components/canvas/DesignerCanvas';
@@ -9,66 +10,159 @@ import PropertyInspector from './components/inspector/PropertyInspector';
 import TopToolbar from './components/toolbar/TopToolbar';
 import AuthModal from './components/auth/AuthModal';
 import LinterPanel from './components/linter/LinterPanel';
+
 import useAuthStore from './hooks/useAuth';
+import useDiagramStore from './hooks/useDiagramStore';
+
 import { ReactFlowProvider } from '@xyflow/react';
+
+import Toast from './components/Toast';
+import Modal from './components/Modal';
+import PublicView from './pages/PublicView';
+
 import './App.css';
 
-// Secure Wrapper for Protected Pages
+
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated } = useAuthStore();
   if (!isAuthenticated) return <Navigate to="/" replace />;
   return children;
 };
 
-// Layout for the canvas
+
 const EditorLayout = () => {
+  const isViewMode = useDiagramStore((s) => s.isViewMode);
+
   return (
     <div className="app">
       <div className="app__canvas-area">
         <DesignerCanvas />
         <LinterPanel />
       </div>
+
       <div className="app__workspace pointer-events-none [&>*]:pointer-events-auto">
-        <ComponentPalette />
-        <PropertyInspector />
+        {!isViewMode && <ComponentPalette />}
+        {!isViewMode && <PropertyInspector />}
       </div>
+
       <div className="pointer-events-auto z-[100]">
-        <TopToolbar />
+        {!isViewMode && <TopToolbar />}
       </div>
     </div>
   );
 };
 
-// We create an internal component to utilize the useNavigate hook!
+
 const AppContent = () => {
   const { isAuthenticated, user } = useAuthStore();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const pageVariants = {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 }
+  };
+
+  const pageTransition = {
+    duration: 0.35,
+    ease: [0.25, 0.8, 0.25, 1]
+  };
 
   return (
     <>
-      <Routes>
-        {/* FIX: The Root URL always serves the Landing Page! */}
-        <Route
-          path="/"
-          element={
-            <Landing
-              // FIX: If logged in, buttons navigate to Dashboard instead of opening modal
-              onLaunch={() => isAuthenticated ? navigate('/dashboard') : setIsAuthModalOpen(true)}
-              onSignIn={() => isAuthenticated ? navigate('/dashboard') : setIsAuthModalOpen(true)}
-              isAuthenticated={isAuthenticated}
-              user={user}
-            />
-          }
-        />
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
 
-        {/* PROTECTED: Dashboard & App */}
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/app" element={<ProtectedRoute><ReactFlowProvider><EditorLayout /></ReactFlowProvider></ProtectedRoute>} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          {/* Landing */}
+          <Route
+            path="/"
+            element={
+              <motion.div
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                transition={pageTransition}
+                className="h-full"
+              >
+                <Landing
+                  onLaunch={() => isAuthenticated ? navigate('/dashboard') : setIsAuthModalOpen(true)}
+                  onSignIn={() => isAuthenticated ? navigate('/dashboard') : setIsAuthModalOpen(true)}
+                  isAuthenticated={isAuthenticated}
+                  user={user}
+                />
+              </motion.div>
+            }
+          />
 
-      {/* Global Auth Modal Overlay */}
+          {/* Dashboard */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <motion.div
+                  variants={pageVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  transition={pageTransition}
+                  className="h-full"
+                >
+                  <Dashboard />
+                </motion.div>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* App (Canvas) */}
+          <Route
+            path="/app"
+            element={
+              <ProtectedRoute>
+                <motion.div
+                  variants={pageVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  transition={pageTransition}
+                  className="h-full"
+                >
+                  <ReactFlowProvider>
+                    <EditorLayout />
+                  </ReactFlowProvider>
+                </motion.div>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/view/:id"
+            element={
+              <motion.div
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                transition={pageTransition}
+                className="h-full"
+              >
+                <ReactFlowProvider>
+                  <PublicView />
+                </ReactFlowProvider>
+              </motion.div>
+            }
+          />
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+
+        </Routes>
+      </AnimatePresence>
+
+
       <AnimatePresence>
         {isAuthModalOpen && !isAuthenticated && (
           <motion.div
@@ -97,6 +191,7 @@ const AppContent = () => {
   );
 };
 
+
 export default function App() {
   const { fetchUser, loading } = useAuthStore();
 
@@ -112,9 +207,10 @@ export default function App() {
     );
   }
 
-  // Router must be at the very top level
   return (
     <Router>
+      <Toast />
+      <Modal />
       <AppContent />
     </Router>
   );

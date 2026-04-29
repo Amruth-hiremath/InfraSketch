@@ -6,6 +6,9 @@ import useDiagramStore from '../hooks/useDiagramStore';
 import useAuthStore from '../hooks/useAuth';
 import { Plus, LayoutTemplate, LogOut, Clock, ArrowLeft, ChevronRight, Box, Activity, Search, Hexagon, Rocket, Server, Database } from 'lucide-react';
 import { ARCHITECTURE_TEMPLATES } from '../data/templates';
+import { deleteTemplate, updateTemplateName, getUserTemplates } from '../api/templatesApi';
+import { useModal } from '../hooks/useModal';
+import { useToast } from '../hooks/useToast';
 
 export default function Dashboard() {
   const [diagrams, setDiagrams] = useState([]);
@@ -18,6 +21,14 @@ export default function Dashboard() {
 
   const loadDiagram = useDiagramStore((s) => s.loadDiagram);
   const clearDiagram = useDiagramStore((s) => s.clearDiagram);
+
+  const [userTemplates, setUserTemplates] = useState([]);
+  const [activeTemplateMenu, setActiveTemplateMenu] = useState(null);
+
+  const [activeTab, setActiveTab] = useState("diagrams");
+
+  const openModal = useModal.getState().openModal;
+
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -45,8 +56,22 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const res = await getUserTemplates();
+        setUserTemplates(res.templates || []);
+      } catch (err) {
+        console.error("Failed to fetch templates");
+      }
+    };
+
+    fetchTemplates();
+  }, []);
+
+  useEffect(() => {
     const handleClickOutside = () => {
       setActiveMenu(null);
+      setActiveTemplateMenu(null);
     };
 
     window.addEventListener("click", handleClickOutside);
@@ -77,22 +102,105 @@ export default function Dashboard() {
     }
   };
 
+  const handleRenameTemplate = (tpl) => {
+    const openModal = useModal.getState().openModal;
+
+    let inputValue = tpl.name;
+
+    openModal({
+      title: "Rename Template",
+      message: "Enter a new name for your template",
+      input: true,
+      defaultValue: tpl.name,
+
+      setInput: (val) => {
+        inputValue = val;
+      },
+
+      onConfirm: async () => {
+        if (!inputValue || inputValue === tpl.name) {
+          useModal.getState().closeModal();
+          return;
+        }
+
+        try {
+          const res = await updateTemplateName(tpl._id, inputValue);
+
+          setUserTemplates(prev =>
+            prev.map(t =>
+              t._id === tpl._id ? { ...t, name: res.template.name } : t
+            )
+          );
+
+          useToast.getState().addToast({
+            message: "Template renamed",
+            type: "success"
+          });
+
+        } catch (err) {
+          console.error("Rename failed");
+
+          useToast.getState().addToast({
+            message: "Failed to rename template",
+            type: "error"
+          });
+        }
+
+        useModal.getState().closeModal();
+        setActiveTemplateMenu(null);
+      }
+    });
+  };
+
+  const handleDeleteTemplate = (id) => {
+    const openModal = useModal.getState().openModal;
+
+    openModal({
+      title: "Delete Template",
+      message: "Are you sure you want to delete this template?",
+
+      onConfirm: async () => {
+        try {
+          await deleteTemplate(id);
+
+          setUserTemplates(prev => prev.filter(t => t._id !== id));
+
+          useToast.getState().addToast({
+            message: "Template deleted",
+            type: "success"
+          });
+
+        } catch (err) {
+          console.error("Delete failed");
+
+          useToast.getState().addToast({
+            message: "Failed to delete template",
+            type: "error"
+          });
+        }
+        useModal.getState().closeModal();
+        setActiveTemplateMenu(null);
+      }
+    });
+  };
   const handleCreateNew = () => {
     if (clearDiagram) clearDiagram();
     navigate('/app');
   };
 
   const handleLoadTemplate = (template) => {
-    if (loadDiagram) {
-      loadDiagram({
-        id: null,
-        name: `Copy of ${template.name}`,
-        description: template.description,
-        nodes: template.nodes,
-        edges: template.edges,
-        viewport: template.viewport
-      });
-    }
+    const nodes = template.nodes;
+    const edges = template.edges;
+
+    loadDiagram({
+      id: null,
+      name: template.name,
+      description: template.description,
+      nodes,
+      edges,
+      viewport: template.viewport
+    });
+
     navigate('/app');
   };
 
@@ -101,38 +209,88 @@ export default function Dashboard() {
     navigate('/');
   };
 
-  const handleRename = async (diag) => {
-    const newName = prompt("Enter new name:", diag.name);
-    if (!newName || newName === diag.name) return;
+  const handleRename = (diag) => {
+    const openModal = useModal.getState().openModal;
 
-    try {
-      const res = await updateDiagramName(diag._id, newName);
+    let inputValue = diag.name;
 
-      setDiagrams(prev =>
-        prev.map(d =>
-          d._id === diag._id ? { ...d, name: res.diagram.name } : d
-        )
-      );
-    } catch (err) {
-      console.error("Rename failed", err);
-    }
+    openModal({
+      title: "Rename Diagram",
+      message: "Enter a new name",
+      input: true,
+      defaultValue: diag.name,
 
-    setActiveMenu(null);
+      setInput: (val) => {
+        inputValue = val;
+      },
+
+      onConfirm: async () => {
+        if (!inputValue || inputValue === diag.name) {
+          useModal.getState().closeModal();
+          return;
+        }
+
+        try {
+          const res = await updateDiagramName(diag._id, inputValue);
+
+          setDiagrams(prev =>
+            prev.map(d =>
+              d._id === diag._id ? { ...d, name: res.diagram.name } : d
+            )
+          );
+
+          useToast.getState().addToast({
+            message: "Diagram renamed",
+            type: "success"
+          });
+
+        } catch (err) {
+          console.error("Rename failed");
+
+          useToast.getState().addToast({
+            message: "Failed to rename diagram",
+            type: "error"
+          });
+        }
+
+        useModal.getState().closeModal();
+        setActiveMenu(null);
+      }
+    });
   };
 
-  const handleDelete = async (id) => {
-    const confirmDelete = confirm("Delete this diagram?");
-    if (!confirmDelete) return;
+  const handleDelete = (id) => {
+    const openModal = useModal.getState().openModal;
 
-    try {
-      await deleteDiagram(id);
+    openModal({
+      title: "Delete Diagram",
+      message: "Are you sure you want to delete this diagram?",
 
-      setDiagrams(prev => prev.filter(d => d._id !== id));
-    } catch (err) {
-      console.error("Delete failed", err);
-    }
+      onConfirm: async () => {
+        try {
+          await deleteDiagram(id);
 
-    setActiveMenu(null);
+          setDiagrams(prev => prev.filter(d => d._id !== id));
+
+          useToast.getState().addToast({
+            message: "Diagram deleted",
+            type: "success"
+          });
+
+        } catch (err) {
+          console.error("Delete failed", err);
+
+          useToast.getState().addToast({
+            message: "Failed to delete diagram",
+            type: "error"
+          });
+        }
+
+        // cleanup
+        useModal.getState().closeModal();
+        setActiveMenu(null);
+      }
+    });
   };
 
   const filteredDiagrams = diagrams.filter(diag =>
@@ -233,206 +391,389 @@ export default function Dashboard() {
           </p>
         </motion.div>
 
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex gap-2 bg-white/5 p-1 rounded-xl border border-white/10">
+
+            <button
+              onClick={() => setActiveTab("diagrams")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === "diagrams"
+                ? "bg-[#FF5C00] text-black shadow"
+                : "text-[#aaa] hover:text-white"
+                }`}
+            >
+              Your Architectures
+            </button>
+
+            <button
+              onClick={() => setActiveTab("templates")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === "templates"
+                ? "bg-[#FF5C00] text-black shadow"
+                : "text-[#aaa] hover:text-white"
+                }`}
+            >
+              Templates
+            </button>
+
+          </div>
+        </div>
+
+
+
         {/* =========================================
             SECTION 1: STARTER TEMPLATES & NEW CANVAS
             ========================================= */}
-        <section className="mb-16">
-          <div className="flex items-center gap-2 mb-6">
-            <Rocket size={20} className="text-[#FF5C00]" />
-            <h2 className="text-2xl font-bold text-white tracking-tight">Starter Templates</h2>
-          </div>
+        {activeTab === "templates" && (
+          <section className="mb-16">
+            <div className="flex items-center gap-2 mb-6">
+              <Rocket size={20} className="text-[#FF5C00]" />
+              <h2 className="text-2xl font-bold text-white tracking-tight">Starter Templates</h2>
+            </div>
 
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          >
-            {/* Create New Card (Always visible) */}
             <motion.div
-              variants={itemVariants}
-              onClick={handleCreateNew}
-              whileHover={{ scale: 1.03, y: -8 }}
-              whileTap={{ scale: 0.96 }}
-              transition={{ type: "spring", stiffness: 400, damping: 20 }}
-              className="group relative h-56 rounded-3xl p-[1px] overflow-hidden cursor-pointer shadow-xl hover:shadow-[0_20px_40px_rgba(255,92,0,0.15)]"
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-[#FF5C00]/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-              <div className="absolute -inset-2 bg-gradient-to-tr from-[#FF5C00]/20 to-transparent blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-
-              <div className="absolute inset-[1px] bg-[#060403] rounded-3xl z-10 flex flex-col items-center justify-center transition-colors duration-500 group-hover:bg-[#0b0805]">
+              {/* Template Cards */}
+              {filteredTemplates.map((tpl) => (
                 <motion.div
-                  className="w-16 h-16 rounded-2xl bg-[#FF5C00]/10 border border-[#FF5C00]/20 flex items-center justify-center mb-4 shadow-[0_0_15px_rgba(255,92,0,0.1)] group-hover:shadow-[0_0_25px_rgba(255,92,0,0.3)] transition-all duration-300"
-                  whileHover={{ rotate: 90 }}
-                  transition={{ type: "spring", stiffness: 200, damping: 10 }}
+                  key={tpl.id}
+                  variants={itemVariants}
+                  onClick={(e) => {
+                    if (e.target.closest(".menu-area")) return;
+                    handleLoadTemplate(tpl);
+                  }}
+                  whileHover={{ scale: 1.03, y: -8 }}
+                  whileTap={{ scale: 0.96 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                  className="group relative h-56 rounded-3xl p-[1px] overflow-hidden cursor-pointer shadow-lg hover:shadow-[0_20px_40px_rgba(255,92,0,0.15)]"
                 >
-                  <Plus className="text-[#FF5C00]" size={30} />
-                </motion.div>
-                <span className="font-bold text-white text-lg mb-1 group-hover:text-[#FF5C00] transition-colors">New Canvas</span>
-                <span className="text-xs text-[#888] font-medium">Start building from scratch</span>
-              </div>
-            </motion.div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-[#FF5C00]/10 opacity-40 group-hover:from-[#FF5C00]/40 group-hover:to-[#FF5C00]/20 transition-all duration-700" />
+                  <div className="absolute inset-[1px] bg-[#0A0A0A] rounded-3xl z-10 p-6 flex flex-col justify-between transition-colors duration-500 group-hover:bg-[#100c0a]">
 
-            {/* Template Cards */}
-            {filteredTemplates.map((tpl) => (
-              <motion.div
-                key={tpl.id}
-                variants={itemVariants}
-                onClick={() => handleLoadTemplate(tpl)}
-                whileHover={{ scale: 1.03, y: -8 }}
-                whileTap={{ scale: 0.96 }}
-                transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                className="group relative h-56 rounded-3xl p-[1px] overflow-hidden cursor-pointer shadow-lg hover:shadow-[0_20px_40px_rgba(255,92,0,0.15)]"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-[#FF5C00]/10 opacity-40 group-hover:from-[#FF5C00]/40 group-hover:to-[#FF5C00]/20 transition-all duration-700" />
-                <div className="absolute inset-[1px] bg-[#0A0A0A] rounded-3xl z-10 p-6 flex flex-col justify-between transition-colors duration-500 group-hover:bg-[#100c0a]">
-
-                  <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                    {tpl.id.includes('serverless') ? <Database size={80} /> : <Server size={80} />}
-                  </div>
-
-                  <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-4">
-                      <motion.div
-                        className="p-2.5 rounded-xl bg-[#FF5C00]/10 border border-[#FF5C00]/20 group-hover:border-[#FF5C00]/40 transition-colors"
-                        whileHover={{ scale: 1.1, rotate: 10 }}
-                      >
-                        <Rocket size={18} className="text-[#FF5C00]" />
-                      </motion.div>
-                      <h3 className="font-bold text-white text-xl truncate pr-2 tracking-tight group-hover:text-[#FF5C00] transition-colors">{tpl.name}</h3>
+                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                      {tpl.id.includes('serverless') ? <Database size={80} /> : <Server size={80} />}
                     </div>
-                    <p className="text-sm text-[#777] line-clamp-2 leading-relaxed font-medium group-hover:text-[#999] transition-colors">
-                      {tpl.description}
-                    </p>
-                  </div>
 
-                  <div className="relative z-10 flex items-center justify-between border-t border-white/5 pt-4 mt-4 text-xs font-bold text-[#FF5C00] uppercase tracking-wider group-hover:border-white/10 transition-colors">
-                    <span>Load Template</span>
-                    <ChevronRight size={16} />
+                    <div className="relative z-10">
+                      <div className="flex items-center gap-3 mb-4">
+                        <motion.div
+                          className="p-2.5 rounded-xl bg-[#FF5C00]/10 border border-[#FF5C00]/20 group-hover:border-[#FF5C00]/40 transition-colors"
+                          whileHover={{ scale: 1.1, rotate: 10 }}
+                          transition={{ type: "spring", stiffness: 200, damping: 10 }}
+                        >
+                          <Rocket size={18} className="text-[#FF5C00]" />
+                        </motion.div>
+                        <h3 className="font-bold text-white text-xl truncate pr-2 tracking-tight group-hover:text-[#FF5C00] transition-colors">{tpl.name}</h3>
+                      </div>
+                      <p className="text-sm text-[#777] line-clamp-2 leading-relaxed font-medium group-hover:text-[#999] transition-colors">
+                        {tpl.description}
+                      </p>
+                    </div>
+
+                    <div className="relative z-10 flex items-center justify-between border-t border-white/5 pt-4 mt-4 text-xs font-bold text-[#FF5C00] uppercase tracking-wider group-hover:border-white/10 transition-colors">
+                      <span>Load Template</span>
+                      <ChevronRight size={16} />
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </section>
+                </motion.div>
+              ))}
+            </motion.div>
+          </section>
+        )}
+
+        {/* =========================================
+                    SECTION: MY TEMPLATES
+            ========================================= */}
+        {activeTab === "templates" && (
+          <section>
+            <div className="flex items-center gap-2 mb-6 pt-10 border-t border-white/10">
+              <LayoutTemplate size={20} className="text-[#888]" />
+              <h2 className="text-2xl font-bold text-white tracking-tight">My Templates</h2>
+            </div>
+
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {userTemplates.length > 0 ? (
+                userTemplates.map((tpl) => (
+                  <motion.div
+                    key={tpl._id}
+                    variants={itemVariants}
+                    onClick={(e) => {
+                      if (e.target.closest(".menu-area")) return;
+                      handleLoadTemplate(tpl);
+                    }}
+                    whileHover={{ scale: 1.03, y: -8 }}
+                    whileTap={{ scale: 0.96 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                    className="group relative h-56 rounded-3xl p-[1px] overflow-hidden cursor-pointer shadow-lg hover:shadow-[0_20px_40px_rgba(255,92,0,0.15)]"
+                  >
+                    {/* Gradient Border */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-[#FF5C00]/10 opacity-40 group-hover:from-[#FF5C00]/40 group-hover:to-[#FF5C00]/20 transition-all duration-700" />
+
+                    {/* Menu */}
+                    <div
+                      className="absolute top-12 right-3 z-30 menu-area"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveTemplateMenu(
+                            tpl._id === activeTemplateMenu ? null : tpl._id
+                          );
+                        }}
+                        className="p-2 cursor-pointer rounded-md hover:bg-white/10"
+                      >
+                        ⋮
+                      </div>
+
+                      {activeTemplateMenu === tpl._id && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute right-0 top-full mt-2 w-32 bg-[#0A0A0A] border border-white/10 rounded-xl shadow-lg overflow-hidden"
+                        >
+                          <button
+                            onClick={() => handleRenameTemplate(tpl)}
+                            className="w-full text-left px-4 py-2 text-sm hover:bg-white/10"
+                          >
+                            Rename
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteTemplate(tpl._id)}
+                            className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Card Content */}
+                    <div className="absolute inset-[1px] bg-[#0A0A0A] rounded-3xl z-10 p-6 flex flex-col justify-between transition-colors duration-500 group-hover:bg-[#100c0a]">
+
+                      {/* Watermark */}
+                      <div className="absolute top-0 right-0 p-4 opacity-5">
+                        <LayoutTemplate size={80} />
+                      </div>
+
+                      {/* Badge */}
+                      <div className="absolute top-3 right-3 text-[10px] font-bold px-2 py-1 bg-[#FF5C00]/20 text-[#FF5C00] rounded-full z-20">
+                        YOURS
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-3 mb-4">
+                          <motion.div
+                            className="p-2.5 rounded-xl bg-[#FF5C00]/10 border border-[#FF5C00]/20 group-hover:border-[#FF5C00]/40 transition-colors"
+                            whileHover={{ scale: 1.1, rotate: 10 }}
+                            transition={{ type: "spring", stiffness: 200, damping: 10 }}
+                          >
+                            <LayoutTemplate size={18} className="text-[#FF5C00]" />
+                          </motion.div>
+
+                          <h3 className="font-bold text-white text-xl truncate">
+                            {tpl.name}
+                          </h3>
+                        </div>
+
+                        <p className="text-sm text-[#777] line-clamp-2">
+                          {tpl.description || "Custom template"}
+                        </p>
+                      </div>
+
+                      <div className="relative z-10 flex items-center justify-between border-t border-white/5 pt-4 mt-4 text-xs font-bold text-[#FF5C00] uppercase tracking-wider group-hover:border-white/10 transition-colors">
+                        <span>Load Template</span>
+                        <ChevronRight size={16} />
+                      </div>
+                    </div>
+                  </motion.div>
+                ))
+              ) : (
+                <motion.div
+                  variants={itemVariants}
+                  className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col items-center justify-center h-56 border border-white/10 border-dashed rounded-3xl bg-[#0A0A0A]/50"
+                >
+                  <LayoutTemplate size={32} className="text-[#444] mb-3" />
+                  <h3 className="text-white font-bold text-lg">No templates yet</h3>
+                  <p className="text-[#777] text-sm mt-1 text-center max-w-xs">
+                    Save your architectures as templates to reuse them later.
+                  </p>
+                </motion.div>
+              )}
+            </motion.div>
+          </section>
+        )}
 
         {/* =========================================
             SECTION 2: SAVED DIAGRAMS
             ========================================= */}
-        <section>
-          <div className="flex items-center gap-2 mb-6 pt-10 border-t border-white/10">
-            <LayoutTemplate size={20} className="text-[#888]" />
-            <h2 className="text-2xl font-bold text-white tracking-tight">Your Architectures</h2>
-          </div>
+        {activeTab === "diagrams" && (
+          <section>
+            <div className="flex items-center gap-2 mb-6 pt-10 border-t border-white/10">
+              <LayoutTemplate size={20} className="text-[#888]" />
+              <h2 className="text-2xl font-bold text-white tracking-tight">Your Architectures</h2>
+            </div>
 
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          >
-            {filteredDiagrams.length > 0 ? (
-              filteredDiagrams.map((diag) => (
-                <motion.div
-                  key={diag._id}
-                  variants={itemVariants}
-                  onClick={() => handleOpenDiagram(diag)}
-                  whileHover={{ scale: 1.03, y: -8 }}
-                  whileTap={{ scale: 0.96 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                  className="group relative h-56 rounded-3xl p-[1px] overflow-hidden cursor-pointer shadow-lg hover:shadow-[0_20px_40px_rgba(0,0,0,0.8)]"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-[#FF5C00]/20 opacity-40 group-hover:from-[#FF5C00]/60 group-hover:to-[#FF5C00]/40 transition-all duration-700" />
-                  {/* Top-right menu */}
-                  <div className="absolute top-2 right-2 z-20">
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveMenu(diag._id === activeMenu ? null : diag._id);
-                      }}
-                      className="
-      p-2 rounded-lg
-      cursor-pointer
-      hover:bg-white/10
-      transition
-    "
-                    >
-                      <span className="text-lg text-[#888] hover:text-white">⋮</span>
-                    </div>
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
 
-                    {activeMenu === diag._id && (
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute right-0 mt-2 w-32 bg-[#0A0A0A] border border-white/10 rounded-xl shadow-lg overflow-hidden"
-                      >
-                        <button
-                          onClick={() => handleRename(diag)}
-                          className="w-full text-left px-4 py-2 text-sm hover:bg-white/10"
-                        >
-                          Rename
-                        </button>
+              <motion.div
+                variants={itemVariants}
+                onClick={handleCreateNew}
+                whileHover={{ scale: 1.03, y: -8 }}
+                whileTap={{ scale: 0.96 }}
+                transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                className="group relative h-56 rounded-3xl p-[1px] overflow-hidden cursor-pointer 
+                          shadow-xl border border-white/10 hover:border-[#FF5C00]/40"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-[#FF5C00]/60 via-transparent to-transparent opacity-20 group-hover:opacity-100 transition-opacity duration-700" />
+                <div className="absolute -inset-2 bg-gradient-to-tr from-[#FF5C00]/20 to-transparent blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
 
-                        <button
-                          onClick={() => handleDelete(diag._id)}
-                          className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <div className="absolute inset-[1px] bg-[#0A0A0A] rounded-3xl z-10 p-6 flex flex-col justify-between transition-colors duration-500 group-hover:bg-[#100c0a]">
-                    <div>
-                      <div className="flex items-center gap-3 mb-4">
-                        <motion.div
-                          className="p-2.5 rounded-xl bg-white/5 border border-white/10 group-hover:border-[#FF5C00]/40 group-hover:bg-[#FF5C00]/10 transition-colors"
-                          whileHover={{ scale: 1.1, rotate: -10 }}
-                        >
-                          <Box size={18} className="text-[#FF5C00]" />
-                        </motion.div>
-                        <h3 className="font-bold text-white text-xl truncate pr-2 tracking-tight group-hover:text-[#FF5C00] transition-colors">{diag.name}</h3>
-                      </div>
-                      <p className="text-sm text-[#777] line-clamp-2 leading-relaxed font-medium group-hover:text-[#999] transition-colors">
-                        {diag.description || 'Untitled Architecture Draft'}
-                      </p>
-                    </div>
+                <div className="absolute inset-[1px] bg-[#0A0A0A] rounded-3xl z-10 flex flex-col items-center justify-center transition-colors duration-500 group-hover:bg-[#0b0805]">
+                  <motion.div
+                    className="w-16 h-16 rounded-2xl bg-[#FF5C00]/10 border border-[#FF5C00]/20 flex items-center justify-center mb-4 shadow-[0_0_15px_rgba(255,92,0,0.1)] group-hover:shadow-[0_0_25px_rgba(255,92,0,0.3)] transition-all duration-300"
+                    whileHover={{ rotate: 90 }}
+                    transition={{ type: "spring", stiffness: 200, damping: 10 }}
+                  >
+                    <Plus className="text-[#FF5C00]" size={30} />
+                  </motion.div>
 
-                    <div className="flex items-center justify-between border-t border-white/5 pt-4 mt-4 text-xs font-bold text-[#555] uppercase tracking-wider group-hover:border-white/10 transition-colors">
-                      <div className="flex items-center gap-2">
-                        <Clock size={14} className="text-[#444] group-hover:text-[#FF5C00] transition-colors" />
-                        {new Date(diag.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </div>
-                      <motion.div
-                        initial={{ x: 0, opacity: 0.5 }}
-                        whileHover={{ x: 5, opacity: 1 }}
-                        className="flex items-center justify-center p-1 rounded-full group-hover:bg-white/5"
-                      >
-                        <ChevronRight size={16} className="text-[#444] group-hover:text-[#FF5C00] transition-all" />
-                      </motion.div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))
-            ) : (
-              /* Empty State */
-              <motion.div variants={itemVariants} className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col items-center justify-center h-56 border border-white/10 border-dashed rounded-3xl bg-[#0A0A0A]/50">
-                {searchQuery ? (
-                  <>
-                    <Search size={32} className="text-[#444] mb-3" />
-                    <h3 className="text-white font-bold text-lg">No diagrams found</h3>
-                    <p className="text-[#777] text-sm mt-1">We couldn't find anything matching "{searchQuery}"</p>
-                  </>
-                ) : (
-                  <>
-                    <LayoutTemplate size={32} className="text-[#444] mb-3" />
-                    <h3 className="text-white font-bold text-lg">No saved architectures</h3>
-                    <p className="text-[#777] text-sm mt-1">Start by creating a new canvas or using a template above.</p>
-                  </>
-                )}
+                  <span className="font-bold text-white text-lg mb-1 group-hover:text-[#FF5C00] transition-colors">
+                    New Canvas
+                  </span>
+                  <span className="text-xs text-[#888] font-medium">
+                    Start building from scratch
+                  </span>
+                </div>
               </motion.div>
-            )}
-          </motion.div>
-        </section>
+
+              {filteredDiagrams.length > 0 ? (
+                filteredDiagrams.map((diag) => (
+                  <motion.div
+                    key={diag._id}
+                    variants={itemVariants}
+                    onClick={(e) => {
+                      if (e.target.closest(".menu-area")) return;
+                      handleOpenDiagram(diag);
+                    }}
+                    whileHover={{ scale: 1.03, y: -8 }}
+                    whileTap={{ scale: 0.96 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                    className="group relative h-56 rounded-3xl p-[1px] overflow-hidden cursor-pointer shadow-lg hover:shadow-[0_20px_40px_rgba(0,0,0,0.8)]"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-[#FF5C00]/20 opacity-40 group-hover:from-[#FF5C00]/60 group-hover:to-[#FF5C00]/40 transition-all duration-700" />
+                    {/* Top-right menu */}
+                    <div
+                      className="absolute top-2 right-2 z-20 menu-area"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMenu(diag._id === activeMenu ? null : diag._id);
+                        }}
+                        className="
+                            p-2 rounded-lg
+                            cursor-pointer
+                            hover:bg-white/10
+                            transition
+                          "
+                      >
+                        <span className="text-lg text-[#888] hover:text-white">⋮</span>
+                      </div>
+
+                      {activeMenu === diag._id && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute right-0 mt-2 w-32 bg-[#0A0A0A] border border-white/10 rounded-xl shadow-lg overflow-hidden"
+                        >
+                          <button
+                            onClick={() => handleRename(diag)}
+                            className="w-full text-left px-4 py-2 text-sm hover:bg-white/10"
+                          >
+                            Rename
+                          </button>
+
+                          <button
+                            onClick={() => handleDelete(diag._id)}
+                            className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="absolute inset-[1px] bg-[#0A0A0A] rounded-3xl z-10 p-6 flex flex-col justify-between transition-colors duration-500 group-hover:bg-[#100c0a]">
+                      <div>
+                        <div className="flex items-center gap-3 mb-4">
+                          <motion.div
+                            className="p-2.5 rounded-xl bg-white/5 border border-white/10 group-hover:border-[#FF5C00]/40 group-hover:bg-[#FF5C00]/10 transition-colors"
+                            whileHover={{ scale: 1.1, rotate: 10 }}
+                            transition={{ type: "spring", stiffness: 200, damping: 10 }}
+                          >
+                            <Box size={18} className="text-[#FF5C00]" />
+                          </motion.div>
+                          <h3 className="font-bold text-white text-xl truncate pr-2 tracking-tight group-hover:text-[#FF5C00] transition-colors">{diag.name}</h3>
+                        </div>
+                        <p className="text-sm text-[#777] line-clamp-2 leading-relaxed font-medium group-hover:text-[#999] transition-colors">
+                          {diag.description || 'Untitled Architecture Draft'}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between border-t border-white/5 pt-4 mt-4 text-xs font-bold text-[#555] uppercase tracking-wider group-hover:border-white/10 transition-colors">
+                        <div className="flex items-center gap-2">
+                          <Clock size={14} className="text-[#444] group-hover:text-[#FF5C00] transition-colors" />
+                          {new Date(diag.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </div>
+                        <motion.div
+                          initial={{ x: 0, opacity: 0.5 }}
+                          whileHover={{ x: 5, opacity: 1 }}
+                          className="flex items-center justify-center p-1 rounded-full group-hover:bg-white/5"
+                        >
+                          <ChevronRight size={16} className="text-[#444] group-hover:text-[#FF5C00] transition-all" />
+                        </motion.div>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))
+              ) : (
+                /* Empty State */
+                <motion.div variants={itemVariants} className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col items-center justify-center h-56 border border-white/10 border-dashed rounded-3xl bg-[#0A0A0A]/50">
+                  {searchQuery ? (
+                    <>
+                      <Search size={32} className="text-[#444] mb-3" />
+                      <h3 className="text-white font-bold text-lg">No diagrams found</h3>
+                      <p className="text-[#777] text-sm mt-1">We couldn't find anything matching "{searchQuery}"</p>
+
+                    </>
+                  ) : (
+                    <>
+                      <LayoutTemplate size={32} className="text-[#444] mb-3" />
+                      <h3 className="text-white font-bold text-lg">No architectures yet</h3>
+                      <p className="text-[#777] text-sm mt-1">
+                        Create your first architecture or start from a template.
+                      </p>
+                      <p className="text-[#777] text-sm mt-1">  Start by clicking the “New Canvas” card above or using a template.</p>
+                    </>
+                  )}
+                </motion.div>
+              )}
+            </motion.div>
+          </section>
+        )}
       </main>
     </div>
   );

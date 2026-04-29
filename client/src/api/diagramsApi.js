@@ -13,8 +13,21 @@ const getAuthHeaders = () => {
   };
 };
 
+export const getPublicDiagram = async (id) => {
+  const { data } = await axios.get(`${API_URL}/public/${id}`);
+  return data;
+};
+
 export const saveDiagram = async (diagramData) => {
   try {
+    if (
+      diagramData.id &&
+      typeof diagramData.id === "string" &&
+      !diagramData.id.match(/^[0-9a-fA-F]{24}$/)
+    ) {
+      diagramData.id = null;
+    }
+
     if (diagramData.id) {
       // FIX: Update existing diagram
       const { data } = await axios.put(`${API_URL}/${diagramData.id}`, diagramData, getAuthHeaders());

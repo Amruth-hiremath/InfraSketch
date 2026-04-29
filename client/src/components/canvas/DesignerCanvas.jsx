@@ -5,7 +5,6 @@ import {
   Controls,
   MiniMap,
   BackgroundVariant,
-  Panel,
   useReactFlow
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -17,8 +16,6 @@ import useLinter from '../../hooks/useLinter';
 import { getServiceById } from '../../data/awsServices';
 
 import DotField from '../landing/DotField';
-import { Activity, Zap, Cpu, Server } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 
 const edgeTypes = { custom: CustomEdge };
 
@@ -26,15 +23,27 @@ let nodeIdCounter = 0;
 
 export default function DesignerCanvas() {
   const reactFlowWrapper = useRef(null);
+  
+  // Ref-based fullscreen (user’s preferred approach)
+  const enterFullscreen = () => {
+    const el = reactFlowWrapper.current;
+    if (!el) return;
+    if (el.requestFullscreen) el.requestFullscreen();
+  };
+
   const reactFlowInstance = useRef(null);
   const { screenToFlowPosition } = useReactFlow();
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isReady, setIsReady] = useState(false);
 
+  // Global state
   const nodes = useDiagramStore((s) => s.nodes);
   const edges = useDiagramStore((s) => s.edges);
   const viewport = useDiagramStore((s) => s.viewport);
   const diagramId = useDiagramStore((s) => s.diagramId);
+  const isViewMode = useDiagramStore((s) => s.isViewMode);
+  const isPublicView = useDiagramStore((s) => s.isPublicView); // ← needed for guard
+
   const onNodesChange = useDiagramStore((s) => s.onNodesChange);
   const onEdgesChange = useDiagramStore((s) => s.onEdgesChange);
   const onConnect = useDiagramStore((s) => s.onConnect);
@@ -42,6 +51,27 @@ export default function DesignerCanvas() {
   const setSelectedNode = useDiagramStore((s) => s.setSelectedNode);
 
   const { getWarningsForNode } = useLinter();
+
+  // ── Fullscreen entry (only in editor) ──
+  useEffect(() => {
+    if (isViewMode && !isPublicView) {
+      enterFullscreen();
+    }
+  }, [isViewMode, isPublicView]);
+
+  // ── Handle ESC (exit fullscreen) ──
+  useEffect(() => {
+    const handleEsc = () => {
+      if (!document.fullscreenElement) {
+        // Only reset view mode if we're NOT in the public view
+        if (!useDiagramStore.getState().isPublicView) {
+          useDiagramStore.getState().setViewMode(false);
+        }
+      }
+    };
+    document.addEventListener('fullscreenchange', handleEsc);
+    return () => document.removeEventListener('fullscreenchange', handleEsc);
+  }, []);
 
   useEffect(() => {
     setIsReady(true);
@@ -52,27 +82,25 @@ export default function DesignerCanvas() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  // Fit View / Apply Viewport on Diagram Load
+  // ── Initial fit / viewport restore ──
   const [hasFitted, setHasFitted] = useState(false);
-
   useEffect(() => {
-    setHasFitted(false); // Reset whenever diagram ID or name changes
+    setHasFitted(false);
   }, [diagramId, useDiagramStore.getState().diagramName]);
 
   useEffect(() => {
     if (reactFlowInstance.current && nodes.length > 0 && !hasFitted) {
       setTimeout(() => {
         if (viewport?.zoom) {
-           reactFlowInstance.current.setViewport(viewport);
+          reactFlowInstance.current.setViewport(viewport);
         } else {
-           reactFlowInstance.current.fitView({ padding: 0.2 });
+          reactFlowInstance.current.fitView({ padding: 0.2 });
         }
         setHasFitted(true);
       }, 50);
     }
-  }, [nodes]); // Fired on nodes change as requested, but locked to execute only once per diagram/template load
+  }, [nodes]);
 
-  // SAFE nodes + inject warnings
   const nodesWithWarnings = useMemo(() => {
     return (nodes || [])
       .filter((n) => n && n.data)
@@ -80,31 +108,30 @@ export default function DesignerCanvas() {
         ...n,
         data: {
           ...n.data,
-          warnings: getWarningsForNode(n.id),
+          warnings: isPublicView ? [] : getWarningsForNode(n.id),
         },
       }));
-  }, [nodes, getWarningsForNode]);
+  }, [nodes, getWarningsForNode, isPublicView]);
 
   const onInit = useCallback((instance) => {
     reactFlowInstance.current = instance;
   }, []);
 
   const onNodeClick = useCallback((_event, node) => {
-    setSelectedNode(node.id);
-  }, [setSelectedNode]);
+    if (!isViewMode) setSelectedNode(node.id);
+  }, [setSelectedNode, isViewMode]);
 
   const onPaneClick = useCallback(() => {
-    setSelectedNode(null);
-  }, [setSelectedNode]);
+    if (!isViewMode) setSelectedNode(null);
+  }, [setSelectedNode, isViewMode]);
 
-  // IMPROVED DROP (merged logic)
   const onDragOver = useCallback((event) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-  }, []);
+    if (!isViewMode) event.preventDefault();
+  }, [isViewMode]);
 
   const onDrop = useCallback(
     (event) => {
+      if (isViewMode) return;
       event.preventDefault();
 
       const serviceId = event.dataTransfer.getData('application/infrasketch-service');
@@ -113,7 +140,6 @@ export default function DesignerCanvas() {
       const service = getServiceById(serviceId);
       if (!service) return;
 
-      // NEW positioning method (more accurate)
       const position = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
@@ -135,13 +161,50 @@ export default function DesignerCanvas() {
 
       addNode(newNode);
     },
-    [addNode, screenToFlowPosition]
+    [addNode, screenToFlowPosition, isViewMode]
   );
 
   return (
     <div className="canvas-wrapper" ref={reactFlowWrapper} style={{ position: 'relative' }}>
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        .react-flow__controls {
+          background-color: rgba(10, 10, 10, 0.6) !important;
+          backdrop-filter: blur(12px) !important;
+          border: 1px solid rgba(255, 255, 255, 0.08) !important;
+          border-radius: 12px !important;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+          display: flex !important;
+          flex-direction: row !important; 
+          padding: 4px !important;
+          gap: 4px !important;
+          margin: 0 !important;
+        }
+        .react-flow__controls-button {
+          background-color: transparent !important;
+          border: 1px solid transparent !important;
+          border-radius: 8px !important;
+          color: #888 !important;
+          width: 32px !important;
+          height: 32px !important;
+          display: flex !important;
+          justify-content: center !important;
+          align-items: center !important;
+          transition: all 0.2s ease !important;
+          cursor: pointer !important;
+          border-bottom: none !important;
+        }
+        .react-flow__controls-button:hover {
+          background-color: rgba(255, 92, 0, 0.1) !important;
+          color: #FF5C00 !important;
+        }
+        .react-flow__controls-button svg {
+          fill: currentColor !important;
+          width: 15px !important;
+          height: 15px !important;
+        }
+      `}} />
 
-      {/* Background Effects */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-40">
         <DotField
           dotRadius={1.2}
@@ -183,8 +246,15 @@ export default function DesignerCanvas() {
           snapGrid={[20, 20]}
           minZoom={0.1}
           maxZoom={2}
-          deleteKeyCode={['Backspace', 'Delete']}
           proOptions={{ hideAttribution: true }}
+          nodesDraggable={!isViewMode}
+          nodesConnectable={!isViewMode}
+          elementsSelectable={!isViewMode}
+          zoomOnScroll={true}
+          zoomOnPinch={true}
+          panOnDrag={true}
+          zoomOnDoubleClick={!isViewMode}
+          deleteKeyCode={isViewMode ? null : ['Backspace', 'Delete']}
         >
           <Background
             variant={BackgroundVariant.Dots}
@@ -193,62 +263,66 @@ export default function DesignerCanvas() {
             color="#333"
           />
 
-          {/* Upgraded Controls */}
-          <Controls
-            className="bg-[#0A0A0A] border border-[#222] text-white rounded-lg shadow-xl"
-          />
+          {!isViewMode && (
+            <>
+              <Controls
+                position="bottom-left"
+                style={{ left: '350px', bottom: '24px', margin: 0 }}
+              />
 
-          {/* Upgraded Minimap */}
-          <MiniMap
-            nodeColor={(n) => {
-              const colors = {
-                compute: '#f97316',
-                storage: '#22c55e',
-                database: '#3b82f6',
-                networking: '#a855f7',
-                security: '#ef4444',
-                management: '#64748b',
-                analytics: '#06b6d4',
-                integration: '#ec4899',
-              };
-              return colors[n.data?.category] || '#FF5C00';
-            }}
-            maskColor="rgba(0,0,0,0.7)"
-            className="bg-[#0A0A0A] border border-[#222] rounded-xl shadow-2xl"
-            style={{ width: 180, height: 120 }}
-          />
-
-          {/* Analytics Panel (unchanged) */}
-          <AnimatePresence>
-            {isReady && (
-              <Panel position="bottom-left" className="pointer-events-none mb-10 ml-4 hidden md:block">
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 }}
-                  className="bg-[#0a0a0a]/60 backdrop-blur-sm border border-white/5 rounded-2xl p-4 w-64"
-                >
-                  <p className="text-[10px] uppercase text-gray-500 font-bold mb-3 tracking-wider flex items-center gap-2">
-                    <Zap size={12} className="text-[#FF5C00]" /> Intelligence
-                  </p>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-400 flex gap-2"><Cpu size={12} /> Compute</span>
-                      <span>{nodes.filter(n => n?.data?.category === 'compute').length}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-400 flex gap-2"><Server size={12} /> Storage</span>
-                      <span>{nodes.filter(n => n?.data?.category === 'storage').length}</span>
-                    </div>
-                  </div>
-                </motion.div>
-              </Panel>
-            )}
-          </AnimatePresence>
-
+              <MiniMap
+                position="bottom-right"
+                nodeColor={(n) => {
+                  const colors = {
+                    compute: '#f97316',
+                    storage: '#22c55e',
+                    database: '#3b82f6',
+                    networking: '#a855f7',
+                    security: '#ef4444',
+                    management: '#64748b',
+                    analytics: '#06b6d4',
+                    integration: '#ec4899',
+                  };
+                  return colors[n.data?.category] || '#FF5C00';
+                }}
+                maskColor="rgba(0, 0, 0, 0.6)"
+                style={{
+                  width: 200,
+                  height: 140,
+                  right: '350px',
+                  bottom: '24px',
+                  background: 'rgba(10,10,10,0.6)',
+                  backdropFilter: 'blur(12px)',
+                }}
+                className="border border-white/10 rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.5)] !m-0"
+              />
+            </>
+          )}
         </ReactFlow>
       </div>
+
+      {/* Only show these overlays in editor view mode (not public) */}
+      {isViewMode && !isPublicView && (
+        <>
+          <div className="fixed top-4 right-4 z-[9999]">
+            <button
+              onClick={() => {
+                useDiagramStore.getState().setViewMode(false);
+                if (document.fullscreenElement) {
+                  document.exitFullscreen();
+                }
+              }}
+              className="px-4 py-2 bg-[#FF5C00] text-black rounded-lg text-sm font-medium shadow-lg"
+            >
+              Exit View
+            </button>
+          </div>
+
+          <div className="fixed bottom-4 left-4 text-xs text-white/50 z-[9999]">
+            Press ESC to exit
+          </div>
+        </>
+      )}
     </div>
   );
 }

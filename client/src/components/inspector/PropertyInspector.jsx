@@ -92,15 +92,22 @@ export default function PropertyInspector() {
 
       case 'toggle':
         return (
-          <label className="inspector__toggle">
-            <input
-              type="checkbox"
-              checked={!!value}
-              onChange={(e) => handlePropertyChange(schema.key, e.target.checked)}
-            />
-            <span className="inspector__toggle-slider" />
-            <span className="inspector__toggle-label">{value ? 'Enabled' : 'Disabled'}</span>
-          </label>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-[#aaa]">
+              {value ? 'Enabled' : 'Disabled'}
+            </span>
+
+            <button
+              onClick={() => handlePropertyChange(schema.key, !value)}
+              className={`relative w-11 h-6 rounded-full transition-colors ${value ? "bg-[#FF5C00]" : "bg-white/10"
+                }`}
+            >
+              <span
+                className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${value ? "translate-x-5" : ""
+                  }`}
+              />
+            </button>
+          </div>
         );
 
       case 'text':

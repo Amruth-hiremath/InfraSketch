@@ -5,6 +5,47 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&display=swap');
 
+/* Buttons, links — obvious ones */
+button,
+a,
+[role="button"],
+input[type="button"],
+input[type="submit"] {
+  cursor: pointer;
+}
+
+/* React Flow controls (important) */
+.react-flow__controls-button {
+  cursor: pointer !important;
+}
+
+/* Any element that has click handlers via class */
+[class*="btn"],
+[class*="button"],
+.toolbar__icon-btn,
+.toolbar__btn {
+  cursor: pointer;
+}
+
+button,
+.toolbar__btn,
+.toolbar__icon-btn {
+  transition: all 0.2s ease;
+}
+
+button:hover,
+.toolbar__btn:hover,
+.toolbar__icon-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+}
+
+button:active,
+.toolbar__btn:active,
+.toolbar__icon-btn:active {
+  transform: scale(0.96);
+}
+
 /* ── App Layout ────────────────────────────────────────── */
 .app {
   height: 100vh;
@@ -556,7 +597,7 @@
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.08);
   transform: translateX(4px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .palette-item:active {
@@ -684,8 +725,15 @@
 }
 
 @keyframes pulse-critical {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-  50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+
+  50% {
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
+  }
 }
 
 .aws-node__stripe {
@@ -831,6 +879,7 @@
     opacity: 0;
     transform: translateY(6px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -918,7 +967,7 @@
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  background: rgba(255,255,255,0.03);
+  background: rgba(255, 255, 255, 0.03);
   color: #666;
 }
 
@@ -1027,7 +1076,9 @@
   cursor: pointer;
 }
 
-.inspector__toggle input { display: none; }
+.inspector__toggle input {
+  display: none;
+}
 
 .inspector__toggle-slider {
   position: relative;
@@ -1051,13 +1102,13 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.inspector__toggle input:checked + .inspector__toggle-slider {
+.inspector__toggle input:checked+.inspector__toggle-slider {
   background: rgba(255, 92, 0, 0.2);
   border-color: rgba(255, 92, 0, 0.5);
   box-shadow: inset 0 0 8px rgba(255, 92, 0, 0.2);
 }
 
-.inspector__toggle input:checked + .inspector__toggle-slider::after {
+.inspector__toggle input:checked+.inspector__toggle-slider::after {
   left: 18px;
   background: #FF5C00;
   box-shadow: 0 0 10px rgba(255, 92, 0, 0.8);
@@ -1204,11 +1255,27 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
-.linter-item__icon { flex-shrink: 0; margin-top: 1px; }
-.linter-item__icon--critical { color: #ef4444; }
-.linter-item__icon--warning { color: #f59e0b; }
-.linter-item__icon--info { color: #818cf8; }
-.linter-item__message { color: #666; line-height: 1.4; }
+.linter-item__icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.linter-item__icon--critical {
+  color: #ef4444;
+}
+
+.linter-item__icon--warning {
+  color: #f59e0b;
+}
+
+.linter-item__icon--info {
+  color: #818cf8;
+}
+
+.linter-item__message {
+  color: #666;
+  line-height: 1.4;
+}
 
 /* ── Modals ──────────────────────────────────────────────── */
 .modal-overlay {
@@ -1224,8 +1291,13 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .modal {
@@ -1241,8 +1313,15 @@
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .modal__close {

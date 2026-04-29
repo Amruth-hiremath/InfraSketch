@@ -11,6 +11,10 @@ const useDiagramStore = create((set, get) => ({
   nodes: [],
   edges: [],
   selectedNodeId: null,
+  isViewMode: false,
+  isPublicView: false,
+  setPublicView: (val) => set({ isPublicView: val }),
+  setViewMode: (val) => set({ isViewMode: val }),
 
   // ── Viewport ──
   viewport: { x: 0, y: 0, zoom: 1 },
@@ -39,12 +43,12 @@ const useDiagramStore = create((set, get) => ({
       nodes: get().nodes.map((n) =>
         n.id === nodeId
           ? {
-              ...n,
-              data: {
-                ...n.data,
-                properties: { ...n.data.properties, ...propertyUpdates },
-              },
-            }
+            ...n,
+            data: {
+              ...n.data,
+              properties: { ...n.data.properties, ...propertyUpdates },
+            },
+          }
           : n
       ),
     });
@@ -91,7 +95,6 @@ const useDiagramStore = create((set, get) => ({
   },
 
   loadDiagram: ({ id, name, description, nodes, edges, viewport }) => {
-    // Sanitize incoming arrays to prevent null nodes/edges
     const safeNodes = (nodes || []).filter(n => n != null);
     const safeEdges = (edges || []).filter(e => e != null);
 
@@ -103,6 +106,7 @@ const useDiagramStore = create((set, get) => ({
       edges: safeEdges,
       viewport: viewport || { x: 0, y: 0, zoom: 1 },
       selectedNodeId: null,
+      isPublicView: false, // ✅ add this
     });
   },
 
@@ -115,6 +119,8 @@ const useDiagramStore = create((set, get) => ({
       edges: [],
       selectedNodeId: null,
       viewport: { x: 0, y: 0, zoom: 1 },
+      isViewMode: false,
+      isPublicView: false,
     });
   },
 

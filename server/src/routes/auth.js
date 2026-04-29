@@ -1,7 +1,10 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import { body, validationResult } from 'express-validator';
 import User from '../models/User.js';
 import { protect } from '../middleware/auth.js';
+import admin from '../config/firebase.js';
+import logger from "../config/logger.js";
 
 const router = express.Router();
 
@@ -13,88 +16,133 @@ const generateToken = (id) => {
 
 // @route   POST /api/auth/register
 // @access  Public
-router.post('/register', async (req, res) => {
-  const { name, email, password } = req.body;
+router.post(
+  '/register',
+  [
+    body('name').trim().notEmpty().withMessage('Name is required'),
+    body('email').isEmail().withMessage('Valid email required'),
+    body('password')
+      .isLength({ min: 8 })
+      .withMessage('Password must be at least 8 characters'),
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
 
-  try {
-    const userExists = await User.findOne({ email });
+      if (!errors.isEmpty()) {
+        return next({
+          status: 400,
+          message: errors.array()[0].msg,
+        });
+      }
 
-    if (userExists) {
-      return res.status(400).json({ message: 'User already exists' });
-    }
+      const { name, email, password } = req.body;
 
-    const user = await User.create({
-      name,
-      email,
-      password,
-    });
+      const userExists = await User.findOne({ email });
 
-    if (user) {
+      if (userExists) {
+        logger.warn(`Register attempt with existing email: ${email}`);
+        return next({ status: 400, message: 'User already exists' });
+      }
+
+      const user = await User.create({
+        name,
+        email,
+        password,
+      });
+
+      logger.info(`User registered: ${email}`);
+
       res.status(201).json({
         user: { _id: user._id, name: user.name, email: user.email },
         token: generateToken(user._id),
       });
-    } else {
-      res.status(400).json({ message: 'Invalid user data' });
+    } catch (error) {
+      logger.error(`Register error: ${error.message}`);
+      next(error);
     }
-  } catch (error) {
-    res.status(500).json({ message: error.message });
   }
-});
+);
 
 // @route   POST /api/auth/login
 // @access  Public
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+router.post(
+  '/login',
+  [
+    body('email').isEmail().withMessage('Valid email required'),
+    body('password').notEmpty().withMessage('Password is required'),
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
 
-  try {
-    const user = await User.findOne({ email });
+      if (!errors.isEmpty()) {
+        return next({
+          status: 400,
+          message: errors.array()[0].msg,
+        });
+      }
 
-    if (user && (await user.matchPassword(password))) {
-      res.json({
-        user: { _id: user._id, name: user.name, email: user.email },
-        token: generateToken(user._id),
-      });
-    } else {
-      res.status(401).json({ message: 'Invalid email or password' });
+      const { email, password } = req.body;
+
+      const user = await User.findOne({ email });
+
+      if (user && (await user.matchPassword(password))) {
+        logger.info(`User logged in: ${email}`);
+        res.json({
+          user: { _id: user._id, name: user.name, email: user.email },
+          token: generateToken(user._id),
+        });
+      } else {
+        logger.warn(`Invalid login attempt: ${email}`);
+        return next({ status: 401, message: 'Invalid email or password' });
+      }
+    } catch (error) {
+      logger.error(`Login error: ${error.message}`);
+      next(error);
     }
-  } catch (error) {
-    res.status(500).json({ message: error.message });
   }
-});
+);
 
 // @route   POST /api/auth/firebase
 // @access  Public
-router.post('/firebase', async (req, res) => {
-  const { token } = req.body;
-
+router.post('/firebase', async (req, res, next) => {
   try {
-    const decoded = jwt.decode(token);
-    if (!decoded || !decoded.email) {
-      return res.status(400).json({ message: 'Invalid Firebase token' });
+    const { token } = req.body;
+
+    if (!token) {
+      return next({ status: 400, message: "No token provided" });
     }
-    
-    const { user_id: uid, email, name = email.split('@')[0] } = decoded;
+
+    const decodedToken = await admin.auth().verifyIdToken(token);
+
+    const { email, uid } = decodedToken;
 
     let user = await User.findOne({ email });
 
     if (!user) {
       user = await User.create({
-        name,
+        name: email.split('@')[0],
         email,
         firebaseUid: uid,
       });
-    } else if (!user.firebaseUid) {
-      user.firebaseUid = uid;
-      await user.save();
     }
 
+    const jwtToken = generateToken(user._id);
+    logger.info(`Firebase login: ${email}`);
+
     res.json({
-      user: { _id: user._id, name: user.name, email: user.email },
-      token: generateToken(user._id),
+      token: jwtToken,
+      user,
     });
+
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    logger.error("Firebase auth failed: " + error.message);
+
+    return next({
+      status: 401,
+      message: "Invalid Firebase token",
+    });
   }
 });
 
@@ -103,13 +151,16 @@ router.post('/firebase', async (req, res) => {
 router.get('/me', protect, async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select('-password');
-    if (user) {
-      res.json({ user });
-    } else {
-      res.status(404).json({ message: 'User not found' });
+
+    if (!user) {
+      logger.warn(`User not found: ${req.user._id}`);
+      return next({ status: 404, message: 'User not found' });
     }
+
+    res.json({ user });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    logger.error(`Fetch user error: ${error.message}`);
+    next(error);
   }
 });
 

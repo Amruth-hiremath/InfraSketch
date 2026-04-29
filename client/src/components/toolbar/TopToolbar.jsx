@@ -6,15 +6,16 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useDiagramStore from '../../hooks/useDiagramStore';
-import { saveDiagram } from '../../api/diagramsApi';
+import { toggleDiagramVisibility, saveDiagram } from '../../api/diagramsApi';
 import useAuthStore from '../../hooks/useAuth';
 import CostWidget from './CostWidget';
 import { exportCanvasAsPNG, exportDiagramAsJSON, importDiagramFromJSON } from '../../utils/exportUtils';
 import { createTemplate } from '../../api/templatesApi';
 import { useToast } from '../../hooks/useToast';
+import ShareModal from '../modals/ShareModal';
 
 export default function TopToolbar() {
-  const navigate = useNavigate(); // FIX: To make the Home button work
+  const navigate = useNavigate();
 
   const diagramName = useDiagramStore((s) => s.diagramName);
   const setDiagramMeta = useDiagramStore((s) => s.setDiagramMeta);
@@ -30,9 +31,14 @@ export default function TopToolbar() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
 
+  const isPublic = useDiagramStore((s) => s.isPublic);
+  const setIsPublic = useDiagramStore((s) => s.setIsPublic);
+  const diagramId = useDiagramStore((s) => s.diagramId);
 
   const isViewMode = useDiagramStore((s) => s.isViewMode);
   const setViewMode = useDiagramStore((s) => s.setViewMode);
+
+  const [shareOpen, setShareOpen] = useState(false);
 
 
   const handleSave = async () => {
@@ -63,6 +69,71 @@ export default function TopToolbar() {
       setSaveStatus('error');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleShare = async () => {
+    const { diagramId, isPublic } = useDiagramStore.getState();
+
+    if (!diagramId) {
+      useToast.getState().addToast({
+        message: "Save diagram first",
+        type: "error"
+      });
+      return;
+    }
+
+    try {
+      let publicStatus = isPublic;
+
+      // If not public → make it public first
+      if (!isPublic) {
+        const res = await toggleDiagramVisibility(diagramId);
+        useDiagramStore.getState().setIsPublic(res.isPublic);
+      }
+
+      // Now generate share link
+      const url = `${window.location.origin}/view/${diagramId}`;
+
+      await navigator.clipboard.writeText(url);
+
+      useToast.getState().addToast({
+        message: "Share link copied!",
+        type: "success"
+      });
+
+    } catch (err) {
+      console.error(err);
+      useToast.getState().addToast({
+        message: "Failed to share diagram",
+        type: "error"
+      });
+    }
+  };
+
+  const handleToggleVisibility = async () => {
+    if (!diagramId) {
+      useToast.getState().addToast({
+        message: "Save diagram first",
+        type: "error"
+      });
+      return;
+    }
+
+    try {
+      const res = await toggleDiagramVisibility(diagramId);
+      setIsPublic(res.isPublic);
+
+      useToast.getState().addToast({
+        message: res.isPublic ? "Diagram is now Public" : "Diagram is now Private",
+        type: "success"
+      });
+
+    } catch (err) {
+      useToast.getState().addToast({
+        message: "Failed to update visibility",
+        type: "error"
+      });
     }
   };
 
@@ -249,10 +320,10 @@ export default function TopToolbar() {
           </AnimatePresence>
         </div>
         <button
-          onClick={() => {
-            const id = useDiagramStore.getState().diagramId;
+          onClick={async () => {
+            const { diagramId, isPublic, setIsPublic } = useDiagramStore.getState();
 
-            if (!id) {
+            if (!diagramId) {
               useToast.getState().addToast({
                 message: "Save diagram first",
                 type: "error"
@@ -260,17 +331,32 @@ export default function TopToolbar() {
               return;
             }
 
-            const url = `${window.location.origin}/view/${id}`;
-            navigator.clipboard.writeText(url);
+            try {
+              if (!isPublic) {
+                const res = await toggleDiagramVisibility(diagramId);
+                setIsPublic(res.isPublic);
+              }
 
-            useToast.getState().addToast({
-              message: "Link copied!",
-              type: "success"
-            });
+              const url = `${window.location.origin}/view/${diagramId}`;
+              await navigator.clipboard.writeText(url);
+
+              useToast.getState().addToast({
+                message: "Share link copied!",
+                type: "success"
+              });
+
+            } catch (err) {
+              console.error(err);
+
+              useToast.getState().addToast({
+                message: "Failed to share diagram",
+                type: "error"
+              });
+            }
           }}
           className="toolbar__btn"
         >
-          Share
+          {isPublic ? "Copy Link" : "Share"}
         </button>
         <button
           onClick={() => setViewMode(!isViewMode)}
@@ -279,8 +365,18 @@ export default function TopToolbar() {
            text-white hover:border-[#FF5C00]/40 
            hover:text-[#FF5C00] transition"
         >
-          {isViewMode ? "Exit View" : "View Mode"}
+          {isViewMode ? "Exit Full Screen" : "View Full Screen"}
         </button>
+        <div
+          onClick={handleToggleVisibility}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer text-sm font-medium transition-all
+    ${isPublic
+              ? "bg-green-500/10 text-green-400 border border-green-500/30"
+              : "bg-gray-500/10 text-gray-400 border border-gray-500/20"
+            }`}
+        >
+          <span>{isPublic ? "Public" : "Private"}</span>
+        </div>
         <input ref={fileInputRef} type="file" accept=".json" onChange={handleImportJSON} className="toolbar__file-input" />
       </div>
     </div>

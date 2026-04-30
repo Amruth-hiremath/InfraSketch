@@ -11,8 +11,8 @@ import TopToolbar from './components/toolbar/TopToolbar';
 import AuthModal from './components/auth/AuthModal';
 import LinterPanel from './components/linter/LinterPanel';
 import { getRedirectResult } from "firebase/auth";
-import { getAuth } from "firebase/auth";
-import useAuthStore from './hooks/useAuth';
+import { auth } from "./config/firebase";
+import useAuthStore from "./hooks/useAuth";
 import useDiagramStore from './hooks/useDiagramStore';
 
 import { ReactFlowProvider } from '@xyflow/react';
@@ -203,15 +203,12 @@ export default function App() {
   useEffect(() => {
     const init = async () => {
       try {
-        const auth = getAuth();
         const result = await getRedirectResult(auth);
-
         if (result?.user) {
           const token = await result.user.getIdToken();
           await useAuthStore.getState().firebaseLogin(token);
         }
         await fetchUser();
-
       } catch (err) {
         console.error("Auth init failed:", err);
       }

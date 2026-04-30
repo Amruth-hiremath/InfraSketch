@@ -6,29 +6,45 @@ import { fileURLToPath } from "url";
 let app;
 
 if (!admin.apps.length) {
-  // 🚨 Skip Firebase in test/CI
   if (process.env.NODE_ENV === "test") {
     console.log("Skipping Firebase initialization in test environment");
-  } else {
-    let serviceAccount;
+  } 
+  else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    try {
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
-    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    } else {
+      app = admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+
+      console.log("Firebase initialized from ENV");
+    } catch (err) {
+      console.error("Invalid Firebase ENV:", err.message);
+    }
+  } 
+  else {
+    try {
       const __filename = fileURLToPath(import.meta.url);
       const __dirname = path.dirname(__filename);
 
-      serviceAccount = JSON.parse(
-        fs.readFileSync(
-          path.join(__dirname, "../../firebaseServiceAccount.json"),
-          "utf-8"
-        )
-      );
-    }
+      const filePath = path.join(__dirname, "../../firebaseServiceAccount.json");
 
-    app = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
+      if (fs.existsSync(filePath)) {
+        const serviceAccount = JSON.parse(
+          fs.readFileSync(filePath, "utf-8")
+        );
+
+        app = admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+        });
+
+        console.log("Firebase initialized from local file");
+      } else {
+        console.log("Firebase not configured (no file, no ENV)");
+      }
+    } catch (err) {
+      console.error("Firebase init error:", err.message);
+    }
   }
 }
 

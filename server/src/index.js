@@ -53,6 +53,7 @@ app.use(
 const allowedOrigins = [
   process.env.CLIENT_URL,
   'http://localhost:5173',
+  'https://infrasketch-frontend-nine.vercel.app',
 ];
 
 app.use(

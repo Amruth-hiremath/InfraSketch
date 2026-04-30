@@ -1,6 +1,10 @@
 {
   "routes": [
     {
+      "src": "^/(assets|favicon.ico|robots.txt|manifest.json|.*\\.js|.*\\.css|.*\\.png|.*\\.jpg|.*\\.svg|.*\\.ico|.*\\.woff2?)$",
+      "dest": "/$1"
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }

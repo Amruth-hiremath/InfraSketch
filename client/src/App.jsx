@@ -10,7 +10,8 @@ import PropertyInspector from './components/inspector/PropertyInspector';
 import TopToolbar from './components/toolbar/TopToolbar';
 import AuthModal from './components/auth/AuthModal';
 import LinterPanel from './components/linter/LinterPanel';
-
+import { getRedirectResult } from "firebase/auth";
+import { getAuth } from "firebase/auth";
 import useAuthStore from './hooks/useAuth';
 import useDiagramStore from './hooks/useDiagramStore';
 
@@ -200,16 +201,24 @@ export default function App() {
   const { fetchUser, loading } = useAuthStore();
 
   useEffect(() => {
-  const init = async () => {
-    try {
-      await fetchUser();
-    } catch (err) {
-      console.error("Auth check failed");
-    }
-  };
+    const init = async () => {
+      try {
+        const auth = getAuth();
+        const result = await getRedirectResult(auth);
 
-  init();
-}, [fetchUser]);
+        if (result?.user) {
+          const token = await result.user.getIdToken();
+          await useAuthStore.getState().firebaseLogin(token);
+        }
+        await fetchUser();
+
+      } catch (err) {
+        console.error("Auth init failed:", err);
+      }
+    };
+
+    init();
+  }, [fetchUser]);
 
   if (loading) {
     return (

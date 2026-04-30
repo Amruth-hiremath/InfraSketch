@@ -3,7 +3,15 @@ import { FcGoogle } from 'react-icons/fc';
 import { FaGithub } from 'react-icons/fa';
 import useAuthStore from '../../hooks/useAuth';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, GithubAuthProvider } from 'firebase/auth';
+import {
+  getAuth,
+  signInWithPopup,
+  signInWithRedirect,
+  GoogleAuthProvider,
+  GithubAuthProvider
+} from 'firebase/auth';
+
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
 // Firebase config
 const firebaseConfig = {
@@ -25,15 +33,23 @@ export default function AuthModal({ onClose }) {
 
   const handleGoogleSignIn = async () => {
     if (!firebaseAuth) return;
+
     try {
       const provider = new GoogleAuthProvider();
-      // FIX: Force the "Choose an account" screen every single time
       provider.setCustomParameters({ prompt: 'select_account' });
-      
+
+      if (isMobile) {
+        await signInWithRedirect(firebaseAuth, provider);
+        return;
+      }
+
       const result = await signInWithPopup(firebaseAuth, provider);
+
       const token = await result.user.getIdToken();
       const success = await firebaseLogin(token);
+
       if (success) onClose();
+
     } catch (err) {
       console.error('Google sign-in failed:', err);
     }
@@ -41,25 +57,32 @@ export default function AuthModal({ onClose }) {
 
   const handleGithubSignIn = async () => {
     if (!firebaseAuth) return;
+
     try {
       const provider = new GithubAuthProvider();
-      // FIX: Force account selection
       provider.setCustomParameters({ prompt: 'select_account' });
 
+      if (isMobile) {
+        await signInWithRedirect(firebaseAuth, provider);
+        return;
+      }
+
       const result = await signInWithPopup(firebaseAuth, provider);
+
       const token = await result.user.getIdToken();
       const success = await firebaseLogin(token);
+
       if (success) onClose();
+
     } catch (err) {
       console.error('GitHub sign-in failed:', err);
     }
   };
-
   // FIX: Stripped the double-wrapper divs that were creating the grey bar.
   // The layout/blur is completely handled by App.jsx now.
   return (
     <div className="flex flex-col relative w-full h-full z-10">
-      
+
       {/* Close Button */}
       <button className="absolute -top-2 -right-2 p-2 text-white/50 hover:text-white transition-colors" onClick={onClose}>
         <X size={20} />
@@ -69,9 +92,9 @@ export default function AuthModal({ onClose }) {
       <div className="flex flex-col items-center pt-4">
         <div className="mb-4">
           <img
-              src="/InfraSketch.png"
-              alt="InfraSketch Logo"
-              className="w-20 h-20 object-contain rounded-xl shadow-lg"
+            src="/InfraSketch.png"
+            alt="InfraSketch Logo"
+            className="w-20 h-20 object-contain rounded-xl shadow-lg"
           />
         </div>
         <h2 className="text-2xl font-bold text-white mb-1">Welcome</h2>

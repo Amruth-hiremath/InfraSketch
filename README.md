@@ -10,6 +10,10 @@
 </p>
 
 <p align="center">
+  <!--Version-->
+  <a href="https://github.com/amruth-hiremath/InfraSketch/releases">
+  <img src="https://img.shields.io/badge/version-1.0.0-blue" />
+  </a>
   <!-- Status -->
   <a href="https://github.com/amruth-hiremath/InfraSketch">
     <img src="https://img.shields.io/badge/build-passing-brightgreen" />

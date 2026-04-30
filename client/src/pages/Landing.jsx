@@ -10,6 +10,7 @@ import {
 import Galaxy from '../components/landing/Galaxy';
 import DotField from '../components/landing/DotField';
 import AuthModal from '../components/auth/AuthModal';
+import useAuthStore from "../hooks/useAuth";
 
 // ─── Spotlight Card ───────────────────────────────────────────────────────────
 const SpotlightCard = ({ children, className = '' }) => {
@@ -407,10 +408,10 @@ function HowItWorksStep({ number, title, description, icon, delay = 0 }) {
 }
 
 // ─── Main Landing Page ────────────────────────────────────────────────────────
-export default function Landing({ onLaunch, onSignIn, isAuthenticated, user }) {
+export default function Landing({ onLaunch, onSignIn }) {
     const scrollStackRef = useRef(null);
     const [authOpen, setAuthOpen] = useState(false);
-
+    const { user, isAuthenticated, logout } = useAuthStore();
     const { scrollYProgress } = useScroll({
         target: scrollStackRef,
         offset: ['start start', 'end end'],
@@ -419,7 +420,7 @@ export default function Landing({ onLaunch, onSignIn, isAuthenticated, user }) {
     useEffect(() => {
         const lenis = new Lenis({
             duration: 1.2,
-            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), 
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
             smoothWheel: true
         });
 
@@ -449,6 +450,12 @@ export default function Landing({ onLaunch, onSignIn, isAuthenticated, user }) {
         if (onLaunch) onLaunch();
         else setAuthOpen(true);
     };
+
+    const displayName =
+        user?.name ||
+        user?.displayName ||
+        user?.email?.split("@")[0] ||
+        "User";
 
     return (
         <div className="bg-[#000] text-[#EDEDED] selection:bg-[#FF5C00]/30 selection:text-[#FF5C00]">
@@ -491,32 +498,63 @@ export default function Landing({ onLaunch, onSignIn, isAuthenticated, user }) {
                         ))}
                     </div>
 
+
+
                     {/* Auth */}
-                    <div className="flex items-center justify-end gap-5 w-auto min-w-[140px]">
+                    <div className="flex items-center gap-4 min-w-[200px] justify-end">
+
                         {isAuthenticated ? (
-                            <div className="flex items-center gap-3 pl-3 sm:pl-4 border-l border-white/10">
-                                <div className="hidden sm:block text-[14px] text-[#888] font-medium">{user?.name || 'User'}</div>
-                                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#FF8533] to-[#FF5C00] flex items-center justify-center text-[14px] font-bold text-black border border-[#FF5C00]/50 shadow-inner">
-                                    {(user?.name || 'U')[0].toUpperCase()}
+                            <div className="flex items-center gap-3 pl-4 border-l border-white/10">
+
+                                {/* Name */}
+                                <div className="hidden sm:block max-w-[120px] truncate text-[14px] text-[#bbb] font-medium">
+                                    {displayName}
                                 </div>
+
+                                {/* Avatar */}
+                                <div className="w-9 h-9 shrink-0 rounded-full bg-gradient-to-br from-[#FF8533] to-[#FF5C00] flex items-center justify-center text-[14px] font-bold text-black border border-[#FF5C00]/50 shadow-[0_0_10px_-2px_#FF5C00]">
+                                    {displayName[0].toUpperCase()}
+                                </div>
+
+                                {/* 🔥 Better Logout */}
+                                <button
+                                    onClick={logout}
+                                    className="
+          px-3 py-1.5
+          text-xs font-medium
+          rounded-lg
+          bg-white/5
+          border border-white/10
+          text-[#aaa]
+          hover:text-white
+          hover:border-[#FF5C00]/40
+          hover:bg-[#FF5C00]/10
+          transition-all
+        "
+                                >
+                                    Logout
+                                </button>
+
                             </div>
                         ) : (
                             <button
                                 onClick={handleSignIn}
-                                className="flex items-center gap-2 text-[14px] font-semibold text-[#aaa] hover:text-white transition-all whitespace-nowrap"
+                                className="flex items-center gap-2 text-[14px] font-semibold text-[#aaa] hover:text-white transition-all"
                             >
-                                <LogIn size={16} />
                                 Sign In
                             </button>
                         )}
+
+                        {/* Launch */}
                         <motion.button
                             whileHover={{ scale: 1.03 }}
                             whileTap={{ scale: 0.97 }}
                             onClick={handleLaunch}
-                            className="px-5 py-2 bg-[#FF5C00] text-black font-bold text-[14px] whitespace-nowrap rounded-xl shadow-[0_0_20px_-5px_#FF5C00] hover:bg-[#ff7a2a] transition-colors"
+                            className="px-5 py-2 bg-[#FF5C00] text-black font-bold text-[14px] rounded-xl shadow-[0_0_20px_-5px_#FF5C00] hover:bg-[#ff7a2a]"
                         >
                             Launch →
                         </motion.button>
+
                     </div>
                 </motion.nav>
             </div>
@@ -657,7 +695,7 @@ export default function Landing({ onLaunch, onSignIn, isAuthenticated, user }) {
                         <br></br>
                         <br></br>
                         <br></br>
-                        
+
 
                         <h1 className="text-5xl sm:text-7xl md:text-[6rem] lg:text-[7.5rem] font-black text-white tracking-[-0.03em] leading-[1.02]">
                             Stop Guessing<br />

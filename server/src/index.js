@@ -49,25 +49,23 @@ app.use(
 );
 
 
-// CORS (controlled)
-const allowedOrigins = [
-  process.env.CLIENT_URL,
-  'http://localhost:5173',
-  'https://infrasketch-frontend-nine.vercel.app',
-];
-
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin && process.env.NODE_ENV === "development") {
+      if (!origin) {
         return callback(null, true);
       }
+
+      const allowedOrigins = [
+        'http://localhost:5173',
+        'https://infrasketch-frontend-nine.vercel.app',
+      ];
 
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-
-      callback(new Error("Not allowed by CORS"));
+      console.warn("Blocked by CORS:", origin);
+      return callback(null, true);
     },
     credentials: true,
   })

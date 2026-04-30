@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import {
   Download, Upload, Image, Plus, FileJson, Home,
   ChevronDown, Pencil, Save, FolderOpen
@@ -37,6 +38,9 @@ export default function TopToolbar() {
 
   const isViewMode = useDiagramStore((s) => s.isViewMode);
   const setViewMode = useDiagramStore((s) => s.setViewMode);
+
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [templateName, setTemplateName] = useState("");
 
   const [shareOpen, setShareOpen] = useState(false);
 
@@ -137,33 +141,8 @@ export default function TopToolbar() {
     }
   };
 
-  const handleSaveTemplate = async () => {
-    const { nodes, edges, viewport } = useDiagramStore.getState();
-
-    // Ask user for name
-    const name = prompt("Template name:");
-    if (!name) return;
-
-    try {
-      await createTemplate({
-        name,
-        description: "",
-        nodes,
-        edges,
-        viewport
-      });
-
-      useToast.getState().addToast({
-        message: "Template saved!",
-        type: "success"
-      });
-    } catch (err) {
-      console.error("Template save failed:", err);
-      useToast.getState().addToast({
-        message: "Failed to save template!",
-        type: "error"
-      });
-    }
+  const handleSaveTemplate = () => {
+    setShowTemplateModal(true);
   };
 
   const handleExportPNG = async () => {
@@ -197,6 +176,54 @@ export default function TopToolbar() {
       console.error('Import failed:', err);
     }
     event.target.value = '';
+  };
+
+  const confirmSaveTemplate = async () => {
+    const name = templateName.trim();
+
+    if (!name) {
+      useToast.getState().addToast({
+        message: "Template name cannot be empty",
+        type: "error"
+      });
+      return;
+    }
+
+    if (name.length > 100) {
+      useToast.getState().addToast({
+        message: "Template name too long",
+        type: "error"
+      });
+      return;
+    }
+
+    const { nodes, edges, viewport } = useDiagramStore.getState();
+
+    try {
+      await createTemplate({
+        name,
+        description: "",
+        nodes,
+        edges,
+        viewport
+      });
+
+      useToast.getState().addToast({
+        message: "Template saved!",
+        type: "success"
+      });
+
+      setShowTemplateModal(false);
+      setTemplateName("");
+
+    } catch (err) {
+      console.error("Template save failed:", err);
+
+      useToast.getState().addToast({
+        message: err.response?.data?.message || "Failed to save template",
+        type: "error"
+      });
+    }
   };
 
   return (
@@ -379,6 +406,51 @@ export default function TopToolbar() {
         </div>
         <input ref={fileInputRef} type="file" accept=".json" onChange={handleImportJSON} className="toolbar__file-input" />
       </div>
+      
+      {/* Portal to break out of toolbar layout boundaries */}
+      {showTemplateModal && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+
+          <div className="bg-[#0a0a0a] border border-[#FF5C00]/20 rounded-xl p-6 w-[380px] shadow-xl">
+
+            <h2 className="text-white text-lg font-semibold mb-4">
+              Save as Template
+            </h2>
+
+            <input
+              type="text"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder="Enter template name..."
+              autoFocus
+              className="w-full p-3 rounded-lg bg-black border border-gray-700 text-white focus:outline-none focus:border-[#FF5C00]"
+            />
+
+            <div className="flex justify-end gap-3 mt-5">
+              <button
+                onClick={() => setShowTemplateModal(false)}
+                className="px-4 py-2 text-sm text-gray-300 hover:text-white"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={confirmSaveTemplate}
+                disabled={!templateName.trim()}
+                className={`px-4 py-2 rounded-lg font-semibold
+            ${templateName.trim()
+                    ? 'bg-[#FF5C00] hover:bg-[#ff7a2a] text-black'
+                    : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                  }`}
+              >
+                Save
+              </button>
+            </div>
+
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

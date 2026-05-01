@@ -53,6 +53,9 @@ InfraSketch is a full-stack web application for designing, validating, and manag
 ---
 
 ## Overview
+<p align = "center">
+<img width="900" height="450" alt="image" src="https://github.com/user-attachments/assets/de425b4e-b9b6-4340-8fe0-19a16b714363" />
+</p>
 
 Designing cloud architectures typically involves multiple disconnected tools:
 - Diagramming tools for visualization
@@ -64,6 +67,10 @@ InfraSketch integrates these workflows into a unified system, enabling users to 
 ---
 
 ## Features
+
+<p align = "center">
+<img width="900" height="450" alt="image" src="https://github.com/user-attachments/assets/7420a45b-1a8d-4884-ba5d-dc67d6f1ad2a" />
+</p>
 
 ### Interactive Architecture Canvas
 - Drag-and-drop interface for AWS components
@@ -260,6 +267,3 @@ InfraSketch is deployed using a cloud-native architecture:
 
 ## Author
 [**Amruthesh C Hiremath**](https://github.com/amruth-hiremath)
-
-## License
-This project is for academic and demonstration purposes.

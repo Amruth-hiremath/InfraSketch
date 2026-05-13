@@ -52,7 +52,8 @@ app.use(
   cors({
     origin: [
       'http://localhost:5173',
-      'https://infrasketch-frontend-nine.vercel.app'
+      'https://infrasketch-frontend-nine.vercel.app',
+      'https://infrasketch-dev.vercel.app'
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

@@ -1007,7 +1007,7 @@ export default function Landing({ onLaunch, onSignIn }) {
                 >
                     <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#1c1c1c] bg-[#0f0f0f] text-[10px] font-mono text-[#444] uppercase tracking-widest">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#FF5C00] animate-pulse" />
-                        Free to use. No account required.
+                        Free to use. No credit card required.
                     </div>
 
                     <h2 className="text-5xl sm:text-7xl md:text-8xl font-black tracking-[-0.03em] text-white leading-[0.95]">

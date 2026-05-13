@@ -1,6 +1,7 @@
 // Hardcoded pricing matrix for AWS services
 // Prices are approximate monthly costs in USD
 // This is an initial version – can be replaced with live AWS Pricing API later
+import { getServiceById } from './awsServices';
 
 const PRICING_MATRIX = {
   ec2: {
@@ -29,12 +30,11 @@ const PRICING_MATRIX = {
   },
 
   lambda: {
-    base: 0,
+    base: 0.20,
     description: 'Pay per request + duration',
     modifiers: {
       memory: (val) => (val / 1024) * 0.0000166667 * 1000000, // per 1M invocations
     },
-    fixedMonthly: 0.20, // base free tier estimate
   },
 
   'elastic-beanstalk': {
@@ -296,7 +296,8 @@ export function calculateNodeCost(serviceId, properties = {}) {
   if (pricing.modifiers) {
     for (const [key, modMap] of Object.entries(pricing.modifiers)) {
       if (typeof modMap === 'function') {
-        cost += modMap(properties[key]);
+        const val = modMap(properties[key]);
+        cost += Number.isFinite(val) ? val : 0;
       } else if (properties[key] !== undefined && modMap[properties[key]] !== undefined) {
         cost += modMap[properties[key]];
       }
@@ -319,13 +320,15 @@ export function calculateTotalCost(nodes) {
 
   for (const node of nodes) {
     // FIX 2: Ensure the node isn't null before trying to read .data
-    if (!node || !node.data) continue; 
+    if (!node || !node.data) continue;
 
     const serviceId = node.data.serviceType || node.type;
-    const props = node.data.properties || {};
+    const service = getServiceById(serviceId);
+    const props = { ...(service?.defaultProperties || {}), ...(node.data.properties || {}) };
     const cost = calculateNodeCost(serviceId, props);
-    perNodeCosts[node.id] = { serviceId, cost };
-    total += cost;
+    const safeCost = Number.isFinite(cost) ? cost : 0;
+    perNodeCosts[node.id] = { serviceId, cost: safeCost };
+    total += safeCost;
   }
 
   return { totalMonthlyCost: total, perNodeCosts };

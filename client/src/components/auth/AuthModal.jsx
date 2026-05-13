@@ -20,17 +20,13 @@ export default function AuthModal({ onClose }) {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
 
-      let result;
-
-      try {
-        result = await signInWithPopup(auth, provider);
-      } catch (err) {
-        if (err.code === "auth/popup-blocked") {
-          await signInWithRedirect(auth, provider);
-          return;
-        }
-        throw err;
+      if (isMobile) {
+        await signInWithRedirect(auth, provider);
+        return;
       }
+
+      const result = await signInWithPopup(auth, provider);
+
       const token = await result.user.getIdToken();
       const success = await firebaseLogin(token);
 
@@ -44,19 +40,13 @@ export default function AuthModal({ onClose }) {
   const handleGithubSignIn = async () => {
     try {
       const provider = new GithubAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
 
-      let result;
-
-      try {
-        result = await signInWithPopup(auth, provider);
-      } catch (err) {
-        if (err.code === "auth/popup-blocked") {
-          await signInWithRedirect(auth, provider);
-          return;
-        }
-        throw err;
+      if (isMobile) {
+        await signInWithRedirect(auth, provider);
+        return;
       }
+
+      const result = await signInWithPopup(auth, provider);
 
       const token = await result.user.getIdToken();
       const success = await firebaseLogin(token);
